@@ -16,7 +16,7 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: 'http://localhost:3000',
+      url: 'http://localhost:3001',
     },
   ],
 };
@@ -316,7 +316,7 @@ app.post('/addAttempts', async (req, res) => {
 });
 
 
-const PORT = 3000;
+const PORT = 3001;
 
 app.listen(PORT, () => {
   console.log(`Server started on http://localhost:${PORT}`);
