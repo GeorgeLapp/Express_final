@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>table screen</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <button class="back-button">
+                <img src="./images/back button.png" alt="Back Icon" />
+            </button>
+            <img class="logo" src="./images/express1-logo.png" alt="Express1 Logo">
+        </header>
+        <div class="main-content">
+            <div class="telegram-info">
+                <p class="telegram-username" id="telegramUsername">Загрузка...</p>
+                <p class="attempts-info" id="attemptsInfo"></p>
+            </div>
+        </div>
+        <footer class="footer">
+            <button class="footer-icon" data-page="wallet">
+                <img src="./images/icon-dollar.png" alt="Dollar Icon" />
+            </button>
+            <button class="footer-icon" data-page="history">
+                <img src="./images/icon-graph.png" alt="Graph Icon" />
+            </button>
+            <button class="footer-icon" data-page="instruction">
+                <img src="./images/icon-question.png" alt="Question Icon" />
+            </button>
+            <button class="footer-icon" data-page="profile">
+                <img src="./images/icon-user.png" alt="User Icon" />
+            </button>
+        </footer>
+    </div>
+    <script src="./js/profile.screen.js" type="module"></script>
+</body>
+
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <button class="back-button">
+                <img src="./images/back button.png" alt="Back Icon" />
+            </button>
+            <img class="logo" src="./images/express1-logo.png" alt="Express1 Logo">
+        </header>
+        <div class="main-content">
+            <main class="main-content">
+                <div class="balance">
+                    <div class="balance-label">Balance:</div>
+                    <div class="balance-value">
+                        <img src="./images/icon-wallet.png" alt="Wallet" class="wallet-icon" />
+                        <span class="points">1000 <span class="unit">points</span></span>
+                    </div>
+                </div>
+
+                <div class="bet-box">
+                    <p class="bet-title">Choose bet size</p>
+                    <div class="bet-options">
+                        <label><input type="radio" name="bet" value="50" /> 50</label>
+                        <label><input type="radio" name="bet" value="100" checked /> 100</label>
+                        <label><input type="radio" name="bet" value="200" /> 200</label>
+                        <label><input type="radio" name="bet" value="500" /> 500</label>
+                    </div>
+                </div>
+                <div class="buttons-wrapper">
+                    <button class="confirm-btn guru-btn">CONFIRM</button>
+                    <button class="buy-btn guru-btn">BUY POINTS</button>
+                </div>
+            </main>
+        </div>
+    <footer class="footer">
+            <button class="footer-icon" data-page="wallet">
+                <img src="./images/icon-dollar.png" alt="Dollar Icon" />
+            </button>
+            <button class="footer-icon" data-page="history">
+                <img src="./images/icon-graph.png" alt="Graph Icon" />
+            </button>
+            <button class="footer-icon" data-page="instruction">
+                <img src="./images/icon-question.png" alt="Question Icon" />
+            </button>
+            <button class="footer-icon" data-page="profile">
+                <img src="./images/icon-user.png" alt="User Icon" />
+            </button>
+        </footer>
+    </div>
+    <script src="./js/wallet-screen.js" type="module"></script>
+</body>
+</html>

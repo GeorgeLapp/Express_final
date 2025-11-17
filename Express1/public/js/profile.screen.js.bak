@@ -1,0 +1,29 @@
+import { setupFooterNavigation, backButtonClickHandler, getTelegramUser } from "./utils.js";
+
+setupFooterNavigation('profile');
+backButtonClickHandler('index.html');
+
+// Обновляет блок с попытками
+function updateAttemptsDisplay(attempts) {
+  const attemptsInfo = document.getElementById('attemptsInfo');
+  if (attemptsInfo) {
+    attemptsInfo.textContent = `Попыток осталось: ${attempts}`;
+  }
+}
+
+// Получаем данные из localStorage
+const attempts = localStorage.getItem('attempts') ?? '—';
+const tg_id = localStorage.getItem('tg_id');
+
+const user = getTelegramUser();
+
+if (user) {
+  const fullName = user.username ? `@${user.username}` : `${user.first_name} ${user.last_name || ''}`;
+  const usernameElem = document.getElementById('telegramUsername');
+  if (usernameElem) {
+    usernameElem.textContent = fullName;
+  }
+} 
+
+
+updateAttemptsDisplay(attempts);

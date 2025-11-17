@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>choosePage</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <button class="back-button">
+                <img src="./images/back button.png" alt="Back Icon" />
+            </button>
+            <img class="logo" src="./images/express1-logo.png" alt="Express1 Logo">
+        </header>
+        <div class="main-content">
+            <main class="choose-page-main">
+                <div class="sports-obj">
+                    <button class="sport-button">
+                        <img class="soccer" src="./images/soccer.png" alt="Soccer ball" />
+                    </button>
+                    <button class="sport-button">
+                        <img class="tennis" src="./images/tennis.png" alt="Tennis ball" />
+                    </button>
+                    <button class="sport-button">
+                        <img class="puck" src="./images/puck.png" alt="Puck" />
+                    </button>
+                </div>
+                <div class="options">
+                    <div class="top-row">
+                        <div class="bubble-group">
+                            <div class="bubble green">
+                                <button class="decrease">-</button>
+                                <span class="number">1,6</span>
+                                <button class="increase">+</button>
+                            </div>
+                        </div>
+                        <div class="bubble-group">
+                            <div class="bubble red">
+                                <button class="decrease">-</button>
+                                <span class="number">4,8</span>
+                                <button class="increase">+</button>
+                            </div>
+                            <div class="speech speech-sport">choose<br>sport</div>
+                            <div class="small-circle choose-range"></div>
+                            <div class="speech speech-range">choose<br>range</div>
+                        </div>
+                    </div>
+                    <div class="center-row">
+                        <div class="bubble-group">
+                            <div class="bubble gold">
+                                <button class="decrease">-</button>
+                                <span class="number">6</span>
+                                <button class="increase">+</button>
+                            </div>
+                            <div class="speech events">choose<br>events</div>
+                            <div class="circle-container-left">
+                                <div class="small-circle"></div>
+                                <div class="small-circle"></div>
+                            </div>
+                            <div class="speech intuition">use your<br>intuition</div>
+                            <div class="circle-container-right">
+                                <div class="small-circle"></div>
+                                <div class="small-circle"></div>
+                                <div class="small-circle"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="guru2-container">
+                        <img class="guru2" src="./images/guru 2.png" alt="Guru" />
+                    </div>
+            </main>
+            <div class="guru-btn-wrap">
+                <button class="guru-btn" id="ask-guru-btn" disabled>
+                    ASK GURU
+                </button>
+                <p id="no-attempts-message" class="no-attempts-message">
+                    Попыток осталось 0
+                </p>
+            </div>
+        </div>
+        <footer class="footer">
+            <button class="footer-icon" data-page="wallet">
+                <img src="./images/icon-dollar.png" alt="Dollar Icon" />
+            </button>
+            <button class="footer-icon" data-page="history">
+                <img src="./images/icon-graph.png" alt="Graph Icon" />
+            </button>
+            <button class="footer-icon" data-page="instruction">
+                <img src="./images/icon-question.png" alt="Question Icon" />
+            </button>
+            <button class="footer-icon" data-page="profile">
+                <img src="./images/icon-user.png" alt="User Icon" />
+            </button>
+        </footer>
+    </div>
+    <script type="module" src="./js/choose-screen.js"></script>
+</body>
+
+</html>

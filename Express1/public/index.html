@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Express1 MiniApp</title>
+  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap" rel="stylesheet">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Шапка с логотипом -->
+    <header class="header">
+      <!-- Подставьте свой логотип (по скриншоту: "Express1" с красной единичкой) -->
+      <img class="logo" src="./images/express1-logo.png" alt="Express1 Logo">
+    </header>
+
+    <!-- Основная часть: "гуру" и парящие объекты -->
+    <main class="main">
+      <div class="floating-objects">
+        <!-- Мяч (футбольный) -->
+        <img class="obj soccer" src="./images/soccer.png" alt="Soccer ball" />
+        <!-- Мяч (теннисный) -->
+        <img class="obj tennis" src="./images/tennis.png" alt="Tennis ball" />
+        <!-- Шайба/пэк -->
+        <img class="obj puck" src="./images/puck.png" alt="Puck" />
+      </div>
+      <!-- Гуру по центру -->
+      <div class="guru-container">
+        <img class="guru" src="./images/guru.png" alt="Guru" />
+      </div>
+    </main>
+
+    <!-- Кнопка "WAKE UP GURU" -->
+    <div class="guru-btn-wrap">
+      <button class="guru-btn" id="wakeup-guru-button">
+        WAKE UP GURU
+      </button>
+    </div>
+
+    <!-- Нижние иконки -->
+    <footer class="footer">
+            <button class="footer-icon" data-page="wallet">
+                <img src="./images/icon-dollar.png" alt="Dollar Icon" />
+            </button>
+            <button class="footer-icon" data-page="history">
+                <img src="./images/icon-graph.png" alt="Graph Icon" />
+            </button>
+            <button class="footer-icon" data-page="instruction">
+                <img src="./images/icon-question.png" alt="Question Icon" />
+            </button>
+            <button class="footer-icon" data-page="profile">
+                <img src="./images/icon-user.png" alt="User Icon" />
+            </button>
+        </footer>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
