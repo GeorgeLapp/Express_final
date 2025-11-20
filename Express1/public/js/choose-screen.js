@@ -119,12 +119,14 @@ export function getRandomSportImage() {
     return null; // Если нет активных видов спорта, возвращаем null
 }
 
-function updateGuruBtnState(){
+function updateGuruBtnState() {
     const btn = document.getElementById('ask-guru-btn');
     if (!btn) return;
 
-    const activeSports = JSON.parse(localStorage.getItem('activeSports') || '[]');
-    if (activeSports.length > 0){
+    // смотрим, есть ли на странице хоть один .sport-button.active
+    const activeButtons = document.querySelectorAll('.sport-button.active');
+
+    if (activeButtons.length > 0) {
         btn.classList.add('active');
         btn.disabled = false;
     } else {
@@ -134,7 +136,9 @@ function updateGuruBtnState(){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    sportButtonClickHandler();
+    sportButtonClickHandler();   // навешиваем обработчики на кнопки спорта
+    updateGuruBtnState();        // сразу выставляем корректное состояние ASK GURU
 });
 
 setupFooterNavigation();
+
