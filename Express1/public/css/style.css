@@ -835,6 +835,6 @@
   font-family: 'Inter', sans-serif;
 }
 #ask-guru-btn:disabled {
-    opacity: 0.4 !important;
-    pointer-events: none !important;
+  opacity: 0.4 !important;
+  pointer-events: none !important;
 }
