@@ -134,11 +134,23 @@ function updateGuruBtnState() {
         btn.disabled = true;
     }
 }
-
 document.addEventListener('DOMContentLoaded', () => {
-    sportButtonClickHandler();   // навешиваем обработчики на кнопки спорта
-    updateGuruBtnState();        // сразу выставляем корректное состояние ASK GURU
+    // 1. Сбрасываем выделение видов спорта при каждом заходе на экран
+    const buttons = document.querySelectorAll('.sport-button');
+    buttons.forEach(btn => btn.classList.remove('active'));
+
+    // 2. Чистим сохранённые активные виды спорта
+    try {
+        localStorage.setItem('activeSports', JSON.stringify([]));
+    } catch (_) {}
+
+    // 3. Принудительно выключаем кнопку ASK GURU
+    updateGuruBtnState();
+
+    // 4. Навешиваем обработчики на кнопки видов спорта
+    sportButtonClickHandler();
 });
 
+// навигация по нижнему меню
 setupFooterNavigation();
 
