@@ -133,24 +133,30 @@ function updateGuruBtnState() {
         btn.classList.remove('active');
         btn.disabled = true;
     }
-}
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Сбрасываем выделение видов спорта при каждом заходе на экран
+}document.addEventListener('DOMContentLoaded', () => {
+    // 1. Сбрасываем выделение
     const buttons = document.querySelectorAll('.sport-button');
     buttons.forEach(btn => btn.classList.remove('active'));
 
-    // 2. Чистим сохранённые активные виды спорта
-    try {
-        localStorage.setItem('activeSports', JSON.stringify([]));
-    } catch (_) {}
+    // 2. Чистим activeSports
+    localStorage.setItem('activeSports', JSON.stringify([]));
 
-    // 3. Принудительно выключаем кнопку ASK GURU
+    // 3. Принудительно выключаем Guru
     updateGuruBtnState();
 
-    // 4. Навешиваем обработчики на кнопки видов спорта
+    // 4. Навешиваем обработчики выбора спорта
     sportButtonClickHandler();
+
+    // 5. ВАЖНО — навешиваем обработчик на кнопку только ПОСЛЕ того,
+    //    как мы установили правильное состояние disabled
+    setupButtonClickHandler('ask-guru-btn', 'table-screen.html', () => {
+        saveBubbleValuesToLocalStorage();
+        const left = getAttemptsLeft();
+        if (left <= 0) {
+            alert('Попытки закончились. Пополните баланс попыток.');
+            return false;
+        }
+        decrementAttempt();
+        return true;
+    });
 });
-
-// навигация по нижнему меню
-setupFooterNavigation();
-
