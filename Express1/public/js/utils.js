@@ -145,11 +145,35 @@ export function mapOutcome(outcome) {
 
 export function mapSportToImage(sport) {
   const s = (sport || '').toString().toLowerCase();
-  if (s.includes('tennis')) return 'tennis';
-  if (s.includes('hock') || s.includes('nhl') || s.includes('лед') || s.includes('хок')) return 'puck';
-  if (s.includes('soccer') || s.includes('football') || s.includes('футбол')) return 'soccer';
+
+  // теннис (латиница + кириллица)
+  if (s.includes('tennis') || s.includes('теннис')) {
+    return 'tennis';
+  }
+
+  // хоккей
+  if (
+    s.includes('hock') ||
+    s.includes('nhl') ||
+    s.includes('лед') ||
+    s.includes('хок')
+  ) {
+    return 'puck';
+  }
+
+  // футбол
+  if (
+    s.includes('soccer') ||
+    s.includes('football') ||
+    s.includes('футбол')
+  ) {
+    return 'soccer';
+  }
+
+  // дефолт — пусть тоже будет футбол
   return 'soccer';
 }
+
 function trimTrailingSlash(url) {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
