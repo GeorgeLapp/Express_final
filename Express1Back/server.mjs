@@ -86,81 +86,167 @@ initDB().then(database => { db = database; });
 app.get('/events', async (req, res) => {
   const { sport, status, tg_id, count, min_coef, max_coef } = req.query;
 
-  const requestedCount = parseInt(count, 10) || 1; // Сколько событий вернуть
-  const ATTEMPT_COST = 1; // Сколько попыток стоит один запрос
+  const requestedCount = parseInt(count, 10) || 1; // сколько событий вернуть
+  const ATTEMPT_COST = 1; // сколько попыток стоит один запрос
 
   let user_id = null;
   let user_attempts = null;
   let userEvents = [];
 
-  if (tg_id) {
-    const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-    if (user) {
-      user_id = user.id;
-      user_attempts = user.attempts;
+  try {
+    // --- работа с пользователем и попытками ---
+    if (tg_id) {
+      const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
+      if (user) {
+        user_id = user.id;
+        user_attempts = user.attempts;
 
-      if (user_attempts < ATTEMPT_COST) {
-        return res
-          .status(403)
-          .json({ error: `У вас недостаточно попыток! Осталось: ${user_attempts}` });
+        if (user_attempts < ATTEMPT_COST) {
+          return res
+            .status(403)
+            .json({ error: `У вас недостаточно попыток! Осталось: ${user_attempts}` });
+        }
+
+        const shownRows = await db.all(
+          'SELECT event_id FROM user_event_shows WHERE user_id = ?',
+          user_id
+        );
+        userEvents = shownRows.map(r => r.event_id);
+      }
+    }
+
+    // --- формирование SQL-запроса ---
+    let query = 'SELECT * FROM events WHERE 1=1';
+    const params = [];
+
+    // фильтрация по спорту
+    if (sport) {
+      const sports = sport
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (sports.length > 0) {
+        query += ` AND sport IN (${sports.map(() => '?').join(',')})`;
+        params.push(...sports);
+      }
+    }
+
+    // фильтрация по статусу
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    } else {
+      query += ' AND status IS NULL';
+    }
+
+    // исключаем уже показанные события
+    if (userEvents.length > 0) {
+      query += ` AND id NOT IN (${userEvents.map(() => '?').join(',')})`;
+      params.push(...userEvents);
+    }
+
+    // фильтрация по коэффициентам
+    if (min_coef) {
+      const min = parseFloat(min_coef);
+      if (!Number.isNaN(min)) {
+        query += ' AND ( (outcome1 >= ?) OR (outcomeX >= ?) OR (outcome2 >= ?) )';
+        params.push(min, min, min);
+      }
+    }
+
+    if (max_coef) {
+      const max = parseFloat(max_coef);
+      if (!Number.isNaN(max)) {
+        query += ' AND ( (outcome1 <= ?) OR (outcomeX <= ?) OR (outcome2 <= ?) )';
+        params.push(max, max, max);
+      }
+    }
+
+    // лимит по количеству событий
+    query += ' ORDER BY RANDOM() LIMIT ' + requestedCount;
+
+    const events = await db.all(query, ...params);
+    if (!events.length) {
+      return res.json([]);
+    }
+
+    // --- выбор показанного исхода и коэффициента ---
+    const filtered = events
+      .map(event => {
+        const availableOutcomes = ['outcome1', 'outcomeX', 'outcome2'].filter(key => {
+          const val = event[key];
+          return typeof val === 'number' && val > 0;
+        });
+
+        if (!availableOutcomes.length) return null;
+
+        const randomKey =
+          availableOutcomes[Math.floor(Math.random() * availableOutcomes.length)];
+
+        return {
+          ...event,
+          shownOutcome: randomKey,
+          shownValue: event[randomKey]
+        };
+      })
+      .filter(Boolean);
+
+    if (!filtered.length) {
+      return res.json([]);
+    }
+
+    // --- запись показов и списание попыток ---
+    if (tg_id && user_id && filtered.length > 0) {
+      for (const e of filtered) {
+        await db.run(
+          'INSERT INTO user_event_shows (user_id, event_id, shown_outcome) VALUES (?, ?, ?)',
+          user_id,
+          e.id,
+          e.shownOutcome
+        );
       }
 
-      const shownRows = await db.all(
-        'SELECT event_id FROM user_event_shows WHERE user_id = ?',
+      // 1 запрос = 1 попытка
+      await db.run(
+        'UPDATE users SET attempts = attempts - ? WHERE id = ?',
+        ATTEMPT_COST,
         user_id
       );
-      userEvents = shownRows.map(r => r.event_id);
-    }
-  }
-
-  // ... фильтрация по спорту / статусу / коэффициентам / исключение показанных ...
-
-  // LIMIT requestedCount — как и раньше
-  query += ' ORDER BY RANDOM() LIMIT ' + requestedCount;
-  const events = await db.all(query, ...params);
-
-  // ... выбор shownOutcome, shownValue ...
-
-  if (tg_id && user_id && filtered.length > 0) {
-    for (const e of filtered) {
-      await db.run(
-        'INSERT INTO user_event_shows (user_id, event_id, shown_outcome) VALUES (?, ?, ?)',
-        user_id,
-        e.id,
-        e.shownOutcome
-      );
     }
 
-    // ВАЖНО: считаем именно «1 запрос = 1 попытка»
-    await db.run(
-      'UPDATE users SET attempts = attempts - ? WHERE id = ?',
-      ATTEMPT_COST,
-      user_id
-    );
+    return res.json(filtered);
+  } catch (err) {
+    console.error('Error in /events:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
-
-  return res.json(filtered);
 });
+
 app.get('/ensureUser/:tg_id', async (req, res) => {
   const { tg_id } = req.params;
-  let user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-  if (!user) {
-    await db.run(
-      'INSERT INTO users (tg_id, attempts) VALUES (?, ?)',
-      tg_id,
-      10 // стартовое количество попыток
-    );
-    user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
+
+  try {
+    let user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
+    if (!user) {
+      await db.run(
+        'INSERT INTO users (tg_id, attempts) VALUES (?, ?)',
+        tg_id,
+        10 // стартовое количество попыток
+      );
+      user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
+    }
+
+    // фронту в первую очередь важны attempts
+    res.json({
+      id: user.id,
+      tg_id: user.tg_id,
+      attempts: user.attempts
+    });
+  } catch (err) {
+    console.error('Error in /ensureUser:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  // фронту в первую очередь важны attempts
-  res.json({
-    id: user.id,
-    tg_id: user.tg_id,
-    attempts: user.attempts
-  });
 });
-
 
 /**
  * @swagger
