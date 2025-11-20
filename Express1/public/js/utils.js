@@ -186,3 +186,68 @@ export function getBackendBaseUrl() {
 
   return trimTrailingSlash(location.origin) + '/backend';
 }
+export function sendFrontendLog(level, message, meta) {
+  try {
+    const backendBase = getBackendBaseUrl();
+    const tg_id = (typeof window !== 'undefined' && window.localStorage)
+      ? window.localStorage.getItem('tg_id')
+      : null;
+
+    const payload = {
+      level,
+      message: String(message ?? ''),
+      meta,
+      tg_id,
+      path: (typeof window !== 'undefined' && window.location)
+        ? window.location.pathname
+        : null,
+      ts: new Date().toISOString()
+    };
+
+    // не используем console.log внутри, чтобы не зациклиться
+    if (navigator && typeof navigator.sendBeacon === 'function') {
+      const blob = new Blob([JSON.stringify(payload)], {
+        type: 'application/json'
+      });
+      navigator.sendBeacon(`${backendBase}/frontend-log`, blob);
+    } else {
+      fetch(`${backendBase}/frontend-log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    }
+  } catch (_) {
+    // глушим ошибки логгера
+  }
+}
+// =============================================
+// Перехват console.log / warn / error и отправка на бэкенд
+// =============================================
+(function patchConsole() {
+  if (typeof window === 'undefined') return;
+  const original = {
+    log: console.log.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+  };
+
+  ['log', 'warn', 'error'].forEach(level => {
+    console[level] = (...args) => {
+      // показать в обычном console (для браузера)
+      original[level](...args);
+
+      try {
+        const msg = args
+          .map(a => (typeof a === 'string' ? a : JSON.stringify(a)))
+          .join(' ');
+        if (typeof sendFrontendLog === 'function') {
+          sendFrontendLog(level, msg, null);
+        }
+      } catch (_) {
+        // если логгер упал — не ломать фронт
+      }
+    };
+  });
+})();
+

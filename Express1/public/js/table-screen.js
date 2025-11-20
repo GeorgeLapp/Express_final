@@ -1,5 +1,11 @@
-import { backButtonClickHandler, setupFooterNavigation, mapOutcome, mapSportToImage, getBackendBaseUrl } from "./utils.js";
-
+import {
+  backButtonClickHandler,
+  setupFooterNavigation,
+  mapOutcome,
+  mapSportToImage,
+  getBackendBaseUrl,
+  getTelegramUser
+} from "./utils.js";
 async function initTableScreen(tg_id) {
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) return;
@@ -156,11 +162,21 @@ backButtonClickHandler('choose-page.html');
 document.addEventListener('DOMContentLoaded', () => {
   setupFooterNavigation();
 
-  const tg_id = localStorage.getItem('tg_id');
+  let tg_id = localStorage.getItem('tg_id');
+  if (!tg_id) {
+    const user = getTelegramUser();
+    if (user?.id) {
+      tg_id = String(user.id);
+      try { localStorage.setItem('tg_id', tg_id); } catch (_) {}
+    }
+  }
+
   if (tg_id) {
     initTableScreen(tg_id);
   } else {
     const mainContent = document.querySelector('.main-content');
-    if (mainContent) mainContent.textContent = 'Ошибка: не найден Telegram ID в localStorage.';
+    if (mainContent) {
+      mainContent.textContent = 'Ошибка: не найден Telegram ID в localStorage и через Telegram.WebApp.';
+    }
   }
 });

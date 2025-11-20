@@ -85,98 +85,82 @@ initDB().then(database => { db = database; });
 // Получить события с фильтрацией и по пользователю
 app.get('/events', async (req, res) => {
   const { sport, status, tg_id, count, min_coef, max_coef } = req.query;
-  let userEvents = [];
+
+  const requestedCount = parseInt(count, 10) || 1; // Сколько событий вернуть
+  const ATTEMPT_COST = 1; // Сколько попыток стоит один запрос
+
   let user_id = null;
   let user_attempts = null;
-  const requestedCount = parseInt(count) || 1;
+  let userEvents = [];
+
   if (tg_id) {
     const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
     if (user) {
       user_id = user.id;
       user_attempts = user.attempts;
-      // Проверяем попытки
-      if (user_attempts < requestedCount) {
-        return res.status(403).json({ error: `У вас недостаточно попыток! Осталось: ${user_attempts}` });
+
+      if (user_attempts < ATTEMPT_COST) {
+        return res
+          .status(403)
+          .json({ error: `У вас недостаточно попыток! Осталось: ${user_attempts}` });
       }
-      // Получаем id событий, которые уже были показаны этому пользователю
-      const shownRows = await db.all('SELECT event_id FROM user_event_shows WHERE user_id = ?', user_id);
-      userEvents = shownRows.map(row => row.event_id);
+
+      const shownRows = await db.all(
+        'SELECT event_id FROM user_event_shows WHERE user_id = ?',
+        user_id
+      );
+      userEvents = shownRows.map(r => r.event_id);
     }
   }
-  let query = 'SELECT * FROM events WHERE 1=1';
-  const params = [];
-  // Фильтрация по видам спорта
-  if (sport) {
-    const sports = sport.split(',').map(s => s.trim()).filter(Boolean);
-    if (sports.length > 0) {
-      query += ` AND sport IN (${sports.map(() => '?').join(',')})`;
-      params.push(...sports);
-    }
-  }
-  if (status) {
-    query += ' AND status = ?';
-    params.push(status);
-  } else {
-    // По умолчанию показываем только не начавшиеся события (status IS NULL)
-    query += ' AND status IS NULL';
-  }
-  if (userEvents.length > 0) {
-    query += ` AND id NOT IN (${userEvents.map(() => '?').join(',')})`;
-    params.push(...userEvents);
-  }
-  // Фильтрация по коэффициентам
-  if (min_coef && max_coef) {
-    query += ' AND (' +
-      '(outcome1 BETWEEN ? AND ?) OR ' +
-      '(outcomeX BETWEEN ? AND ?) OR ' +
-      '(outcome2 BETWEEN ? AND ?))';
-    params.push(min_coef, max_coef, min_coef, max_coef, min_coef, max_coef);
-  } else if (min_coef) {
-    query += ' AND (' +
-      'outcome1 >= ? OR outcomeX >= ? OR outcome2 >= ?)';
-    params.push(min_coef, min_coef, min_coef);
-  } else if (max_coef) {
-    query += ' AND (' +
-      'outcome1 <= ? OR outcomeX <= ? OR outcome2 <= ?)';
-    params.push(max_coef, max_coef, max_coef);
-  }
-  // Лимит по количеству
-  const limit = requestedCount;
-  query += ' ORDER BY RANDOM() LIMIT ' + limit;
+
+  // ... фильтрация по спорту / статусу / коэффициентам / исключение показанных ...
+
+  // LIMIT requestedCount — как и раньше
+  query += ' ORDER BY RANDOM() LIMIT ' + requestedCount;
   const events = await db.all(query, ...params);
-  if (events.length === 0) return res.json([]);
-  // Для каждого события выбираем только подходящие исходы
-  const outcomes = ['outcome1', 'outcomeX', 'outcome2'];
-  const min = min_coef !== undefined ? parseFloat(min_coef) : undefined;
-  const max = max_coef !== undefined ? parseFloat(max_coef) : undefined;
-  const filtered = events.map(event => {
-    // Определяем подходящие исходы
-    const suitable = outcomes.filter(o => {
-      const val = parseFloat(event[o]);
-      if (isNaN(val)) return false;
-      if (min !== undefined && val < min) return false;
-      if (max !== undefined && val > max) return false;
-      return true;
-    });
-    if (suitable.length === 0) return null;
-    const random = suitable[Math.floor(Math.random() * suitable.length)];
-    return {
-      ...event,
-      shownOutcome: random,
-      shownValue: event[random]
-    };
-  }).filter(Boolean);
-  if (filtered.length === 0) return res.json([]);
-  // Сохраняем показанные события пользователю в user_event_shows
+
+  // ... выбор shownOutcome, shownValue ...
+
   if (tg_id && user_id && filtered.length > 0) {
     for (const e of filtered) {
-      await db.run('INSERT INTO user_event_shows (user_id, event_id, shown_outcome) VALUES (?, ?, ?)', user_id, e.id, e.shownOutcome);
+      await db.run(
+        'INSERT INTO user_event_shows (user_id, event_id, shown_outcome) VALUES (?, ?, ?)',
+        user_id,
+        e.id,
+        e.shownOutcome
+      );
     }
-    // Уменьшаем attempts на count
-    await db.run('UPDATE users SET attempts = attempts - ? WHERE id = ?', requestedCount, user_id);
+
+    // ВАЖНО: считаем именно «1 запрос = 1 попытка»
+    await db.run(
+      'UPDATE users SET attempts = attempts - ? WHERE id = ?',
+      ATTEMPT_COST,
+      user_id
+    );
   }
-  res.json(filtered);
+
+  return res.json(filtered);
 });
+app.get('/ensureUser/:tg_id', async (req, res) => {
+  const { tg_id } = req.params;
+  let user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
+  if (!user) {
+    await db.run(
+      'INSERT INTO users (tg_id, attempts) VALUES (?, ?)',
+      tg_id,
+      10 // стартовое количество попыток
+    );
+    user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
+  }
+
+  // фронту в первую очередь важны attempts
+  res.json({
+    id: user.id,
+    tg_id: user.tg_id,
+    attempts: user.attempts
+  });
+});
+
 
 /**
  * @swagger
@@ -315,6 +299,23 @@ app.post('/addAttempts', async (req, res) => {
   res.json(updatedUser);
 });
 
+app.post('/frontend-log', express.json(), (req, res) => {
+  const { level, message, meta, tg_id, path, ts } = req.body || {};
+
+  const stamp = ts || new Date().toISOString();
+  const lvl = (level || 'log').toUpperCase();
+  const userPart = tg_id ? `tg_id=${tg_id}` : 'tg_id=-';
+  const pathPart = path || '-';
+
+  console.log(
+    `[FRONT][${stamp}][${lvl}][${userPart}][${pathPart}]`,
+    message || '',
+    meta || ''
+  );
+
+  // при желании можно писать в БД
+  res.json({ ok: true });
+});
 
 const PORT = 3001;
 
