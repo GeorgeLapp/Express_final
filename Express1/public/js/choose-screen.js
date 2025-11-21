@@ -148,34 +148,38 @@ function updateGuruBtnState() {
 
 // ----- Инициализация экрана -----
 
-document.addEventListener('DOMContentLoaded', () => {
-  // 1. Сбрасываем выделение видов спорта при каждом заходе на экран
+function resetSportSelectionAndGuruBtn() {
   const buttons = document.querySelectorAll('.sport-button');
   buttons.forEach(btn => btn.classList.remove('active'));
 
-  // 2. Чистим сохранённые активные виды спорта
   try {
     localStorage.setItem('activeSports', JSON.stringify([]));
   } catch (_) {}
 
-  // 3. Принудительно выключаем кнопку ASK GURU
-  updateGuruBtnState();
+  const guruBtn = document.getElementById('ask-guru-btn');
+  if (guruBtn) {
+    guruBtn.classList.remove('active');
+    guruBtn.disabled = true;
+  }
+}
 
-  // 4. Навешиваем обработчики на кнопки видов спорта
+document.addEventListener('DOMContentLoaded', () => {
+  resetSportSelectionAndGuruBtn();
+
   sportButtonClickHandler();
 
-  // 5. Навешиваем обработчик навигации на ASK GURU
   setupButtonClickHandler('ask-guru-btn', 'table-screen.html', () => {
     saveBubbleValuesToLocalStorage();
     const left = getAttemptsLeft();
     if (left <= 0) {
       alert('Попытки закончились. Пополните баланс попыток.');
-      return false; // отменяем переход
+      return false;
     }
-    decrementAttempt(); // тратим ровно 1 попытку
+    decrementAttempt();
     return true;
   });
 });
+
 
 // Нижнее меню
 setupFooterNavigation();

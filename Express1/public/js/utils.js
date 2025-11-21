@@ -39,17 +39,30 @@ export function backButtonClickHandler(targetUrl) {
   }
   
   export function setupButtonClickHandler(buttonId, targetUrl, beforeNavigate) {
-    const button = document.getElementById(buttonId);
-    if (button) {
-      button.addEventListener('click', () => {
-        if (typeof beforeNavigate === 'function') {
-          const res = beforeNavigate();
-          if (res === false) return;
-        }
-        window.location.assign(targetUrl);
-      });
+  const button = document.getElementById(buttonId);
+  if (!button) return;
+
+  button.addEventListener('click', (event) => {
+    // 1. Если кнопка выключена — просто выходим
+    if (button.disabled || button.classList.contains('disabled')) {
+      event.preventDefault();
+      return;
     }
-  }
+
+    // 2. Дополнительная проверка перед переходом
+    if (typeof beforeNavigate === 'function') {
+      const res = beforeNavigate();
+      if (res === false) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    // 3. Переход на целевую страницу
+    window.location.assign(targetUrl);
+  });
+}
+
 
   export function setupFooterNavigation(currentPage) {
   const footerButtons = document.querySelectorAll('.footer-icon');
@@ -145,7 +158,7 @@ export function mapOutcome(outcome) {
 
 export function mapSportToImage(sport) {
   const s = (sport || '').toString().toLowerCase();
-
+  console.log(s)
   // теннис (латиница + кириллица)
   if (s.includes('tennis') || s.includes('теннис')) {
     return 'tennis';
@@ -249,7 +262,6 @@ export function sendFrontendLog(level, message, meta) {
 // Перехват console.log / warn / error и отправка на бэкенд
 // =============================================
 (function patchConsole() {
-  if (typeof window === 'undefined') return;
   const original = {
     log: console.log.bind(console),
     warn: console.warn.bind(console),
