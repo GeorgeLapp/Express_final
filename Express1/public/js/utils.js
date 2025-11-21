@@ -158,7 +158,7 @@ export function mapOutcome(outcome) {
 
 export function mapSportToImage(sport) {
   const s = (sport || '').toString().toLowerCase();
-  console.log(s)
+  sendFrontendLog("log","log","log");
   // теннис (латиница + кириллица)
   if (s.includes('tennis') || s.includes('теннис')) {
     return 'tennis';
