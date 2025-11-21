@@ -4,9 +4,11 @@ import {
   mapOutcome,
   mapSportToImage,
   getBackendBaseUrl,
-  getTelegramUser
+  getTelegramUser,
+  sendFrontendLog
 } from "./utils.js";
 async function initTableScreen(tg_id) {
+  sendFrontendLog("лог в table заработал");
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) return;
 
@@ -80,6 +82,7 @@ async function initTableScreen(tg_id) {
 }
 
 function createTableRow(event) {
+  sendFrontendLog("лог в table заработал");
   const row = document.createElement('div');
   row.classList.add('table-line');
 
@@ -108,6 +111,7 @@ function createTableRow(event) {
 }
 
 function createActionButtons() {
+  sendFrontendLog("лог в table заработал");
   const buttonsContainer = document.createElement('div');
   buttonsContainer.classList.add('buttons-container');
 
@@ -130,6 +134,7 @@ function createActionButtons() {
 }
 
 function createTotalsBlock(product) {
+  sendFrontendLog("лог в table заработал");
   const totalsWrapper = document.createElement('div');
   totalsWrapper.classList.add('totals-wrapper');
 
