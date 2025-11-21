@@ -165,98 +165,100 @@ app.get('/events', async (req, res) => {
 
     // лимит по количеству событий
     query += ' ORDER BY RANDOM() LIMIT ' + requestedCount;
-const events = await db.all(query, ...params);
-if (!events.length) {
-  return res.json([]);
-}
+    const events = await db.all(query, ...params);
+    if (!events.length) {
+      console.log(res.json([]));
+      return res.json([]);
 
-// -------- 2. Баланс спортивных типов для мульти-выбора --------
-let eventsForProcessing = events;
-
-if (sport) {
-  const sportsRequested = sport
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  // если выбрано 2+ вида спорта и получено событий больше, чем просили —
-  // делаем грубый баланс по видам
-  if (sportsRequested.length > 1 && events.length > requestedCount) {
-    const bySport = new Map();
-
-    for (const e of events) {
-      const key = (e.sport || '').toString();
-      if (!bySport.has(key)) bySport.set(key, []);
-      bySport.get(key).push(e);
     }
 
-    // немного перемешаем внутри групп на всякий случай
-    for (const [, list] of bySport) {
-      list.sort(() => Math.random() - 0.5);
-    }
+    // -------- 2. Баланс спортивных типов для мульти-выбора --------
+    let eventsForProcessing = events;
 
-    const balanced = [];
-    // round-robin по видам спорта, пока не набрали requestedCount или не кончились события
-    while (balanced.length < requestedCount) {
-      let progressed = false;
-      for (const [, list] of bySport) {
-        if (!list.length) continue;
-        balanced.push(list.pop());
-        progressed = true;
-        if (balanced.length >= requestedCount) break;
-      }
-      if (!progressed) break; // все группы пустые
-    }
+    if (sport) {
+      const sportsRequested = sport
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
 
-    if (balanced.length) {
-      eventsForProcessing = balanced;
-    }
-  }
-}
+      // если выбрано 2+ вида спорта и получено событий больше, чем просили —
+      // делаем грубый баланс по видам
+      if (sportsRequested.length > 1 && events.length > requestedCount) {
+        const bySport = new Map();
 
-// -------- 1. Выбор исхода с 70% ничьих --------
-const filtered = eventsForProcessing
-  .map(event => {
-    const availableOutcomes = ['outcome1', 'outcomeX', 'outcome2'].filter(key => {
-      const val = event[key];
-      return typeof val === 'number' && val > 0;
-    });
+        for (const e of events) {
+          const key = (e.sport || '').toString();
+          if (!bySport.has(key)) bySport.set(key, []);
+          bySport.get(key).push(e);
+        }
 
-    if (!availableOutcomes.length) return null;
+        // немного перемешаем внутри групп на всякий случай
+        for (const [, list] of bySport) {
+          list.sort(() => Math.random() - 0.5);
+        }
 
-    let chosenKey;
+        const balanced = [];
+        // round-robin по видам спорта, пока не набрали requestedCount или не кончились события
+        while (balanced.length < requestedCount) {
+          let progressed = false;
+          for (const [, list] of bySport) {
+            if (!list.length) continue;
+            balanced.push(list.pop());
+            progressed = true;
+            if (balanced.length >= requestedCount) break;
+          }
+          if (!progressed) break; // все группы пустые
+        }
 
-    const hasDraw = availableOutcomes.includes('outcomeX');
-    const rnd = Math.random();
-
-    if (hasDraw && rnd < 0.7) {
-      // 70% случаев — ничья
-      chosenKey = 'outcomeX';
-    } else {
-      // оставшиеся 30% — другие исходы (или если ничьи нет)
-      const pool = hasDraw
-        ? availableOutcomes.filter(k => k !== 'outcomeX')
-        : availableOutcomes;
-
-      // если кроме ничьей ничего нет — всё равно показываем ничью
-      if (!pool.length) {
-        chosenKey = 'outcomeX';
-      } else {
-        chosenKey = pool[Math.floor(Math.random() * pool.length)];
+        if (balanced.length) {
+          eventsForProcessing = balanced;
+        }
       }
     }
 
-    return {
-      ...event,
-      shownOutcome: chosenKey,
-      shownValue: event[chosenKey]
-    };
-  })
-  .filter(Boolean);
+    // -------- 1. Выбор исхода с 70% ничьих --------
+    const filtered = eventsForProcessing
+      .map(event => {
+        const availableOutcomes = ['outcome1', 'outcomeX', 'outcome2'].filter(key => {
+          const val = event[key];
+          return typeof val === 'number' && val > 0;
+        });
 
-if (!filtered.length) {
-  return res.json([]);
-}
+        if (!availableOutcomes.length) return null;
+
+        let chosenKey;
+
+        const hasDraw = availableOutcomes.includes('outcomeX');
+        const rnd = Math.random();
+
+        if (hasDraw && rnd < 0.7) {
+          // 70% случаев — ничья
+          chosenKey = 'outcomeX';
+        } else {
+          // оставшиеся 30% — другие исходы (или если ничьи нет)
+          const pool = hasDraw
+            ? availableOutcomes.filter(k => k !== 'outcomeX')
+            : availableOutcomes;
+
+          // если кроме ничьей ничего нет — всё равно показываем ничью
+          if (!pool.length) {
+            chosenKey = 'outcomeX';
+          } else {
+            chosenKey = pool[Math.floor(Math.random() * pool.length)];
+          }
+        }
+
+        return {
+          ...event,
+          shownOutcome: chosenKey,
+          shownValue: event[chosenKey]
+        };
+      })
+      .filter(Boolean);
+
+    if (!filtered.length) {
+      return res.json([]);
+    }
 
     // --- запись показов и списание попыток ---
     if (tg_id && user_id && filtered.length > 0) {
