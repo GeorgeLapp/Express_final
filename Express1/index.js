@@ -20,7 +20,7 @@ app.use(
     index: 'index.html',
     etag: true,
     lastModified: true,
-    maxAge: '7d',
+    maxAge: '-1',
     setHeaders: (res, filePath) => {
       // Do not cache HTML; cache assets
       if (filePath.endsWith('.html') || path.endsWith('.js')) {
