@@ -167,7 +167,6 @@ app.get('/events', async (req, res) => {
     query += ' ORDER BY RANDOM() LIMIT ' + requestedCount;
     const events = await db.all(query, ...params);
     if (!events.length) {
-      console.log(res.json([]));
       return res.json([]);
 
     }
@@ -278,7 +277,7 @@ app.get('/events', async (req, res) => {
         user_id
       );
     }
-
+    console.log(res.json(filtered));
     return res.json(filtered);
   } catch (err) {
     console.error('Error in /events:', err);
