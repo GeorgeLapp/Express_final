@@ -8,7 +8,7 @@ import {
   decrementAttempt,
   getTelegramUser,
   getBackendBaseUrl
-} from "./utils.js";
+} from "./utils2.js";
 
 // Кнопка "назад" на индекс
 backButtonClickHandler('index.html');

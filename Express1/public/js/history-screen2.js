@@ -1,4 +1,4 @@
-import { backButtonClickHandler, setupFooterNavigation, mapOutcome, getBackendBaseUrl } from './utils.js';
+import { backButtonClickHandler, setupFooterNavigation, mapOutcome, getBackendBaseUrl } from './utils2.js';
 
 function createHistoryRow({ date, number, coef, result }) {
   const row = document.createElement('div');

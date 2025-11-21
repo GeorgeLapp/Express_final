@@ -1,4 +1,4 @@
-import { setupFooterNavigation, backButtonClickHandler } from "./utils.js";
+import { setupFooterNavigation, backButtonClickHandler } from "./utils2.js";
 
 backButtonClickHandler('index.html');
 
