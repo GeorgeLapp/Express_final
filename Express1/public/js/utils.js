@@ -224,30 +224,24 @@ export function getBackendBaseUrl() {
   return trimTrailingSlash(location.origin) + '/backend';
 }
 export function sendFrontendLog(level, message, meta) {
-  try {
-    const backendBase = getBackendBaseUrl();
-    
-    const payload = {
-      level,
-      message: String(message ?? ''),
-      meta,
-      tg_id,
-      path: (typeof window !== 'undefined' && window.location)
-        ? window.location.pathname
-        : null,
-      ts: new Date().toISOString()
-    };
+  const url = "https://express1.ru/backend/frontend-log";
 
-    // не используем console.log внутри, чтобы не зациклиться
+  try {
+    const payload = { message };
+
+     fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
    
-      fetch(`${backendBase}/frontend-log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(() => {});
-    
-  } catch (_) {
-    // глушим ошибки логгера
+    return text; // возвращаем ответ, чтобы можно было использовать дальше
+  } catch (err) {
+    console.error("Ошибка отправки лога:", err);
+    throw err;
   }
 }
 // =============================================
