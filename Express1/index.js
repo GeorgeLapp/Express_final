@@ -1,4 +1,4 @@
-// index.js
+﻿// index.js
 require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
@@ -23,12 +23,13 @@ app.use(
     maxAge: '7d',
     setHeaders: (res, filePath) => {
       // Do not cache HTML; cache assets
-      if (filePath.endsWith('.html')) {
+      if (filePath.endsWith('.html') || path.endsWith('.js')) {
         res.setHeader('Cache-Control', 'no-cache');
       }
     }
   })
 );
+
 
 // Telegram WebApp data handler
 bot.on('message', (msg) => {
