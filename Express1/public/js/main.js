@@ -29,6 +29,6 @@ if (window.Telegram && window.Telegram.WebApp) {
 
 // Initialize attempts on first app load
 ensureAttemptsInitialized(0);
-
+sendFrontendLog("лог в main заработал");
 setupButtonClickHandler('wakeup-guru-button', 'choose-page.html');
 setupFooterNavigation();
