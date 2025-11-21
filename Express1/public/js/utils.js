@@ -224,6 +224,7 @@ export function getBackendBaseUrl() {
   return trimTrailingSlash(location.origin) + '/backend';
 }
 export function sendFrontendLog( message) {
+  console.log('Frontend Log:', message);
   const url = "https://express1.ru/backend/frontend-log";
 
   try {
