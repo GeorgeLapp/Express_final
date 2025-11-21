@@ -2,11 +2,11 @@
   "name": "express1",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "2.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js",
-    "dev": "node index.js & npx open-cli http://localhost:3000"
+    "start": "node index2.js",
+    "dev": "node index2.js & npx open-cli http://localhost:3000"
   },
   "keywords": [],
   "author": "",
