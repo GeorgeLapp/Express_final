@@ -277,7 +277,7 @@ app.get('/events', async (req, res) => {
         user_id
       );
     }
-    console.log(res.json(filtered));
+    console.log(res.json(filtered.body));
     return res.json(filtered);
   } catch (err) {
     console.error('Error in /events:', err);
