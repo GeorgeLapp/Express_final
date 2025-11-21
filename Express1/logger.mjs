@@ -9,13 +9,13 @@
 
 const url = "https://express1.ru/backend/frontend-log";
 
-async function sendLog() {
-  try {
-    const payload = {
-      message: "лог"
-    };
+export function sendFrontendLog( message) {
+  const url = "https://express1.ru/backend/frontend-log";
 
-    const res = await fetch(url, {
+  try {
+    const payload = { message };
+
+     fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -23,11 +23,10 @@ async function sendLog() {
       body: JSON.stringify(payload)
     });
 
-    const text = await res.text();
-    console.log("Ответ сервера:", text);
   } catch (err) {
     console.error("Ошибка отправки лога:", err);
+    throw err;
   }
 }
 
-sendLog();
+sendFrontendLog("из логгера заработало");

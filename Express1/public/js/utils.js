@@ -223,7 +223,7 @@ export function getBackendBaseUrl() {
 
   return trimTrailingSlash(location.origin) + '/backend';
 }
-export function sendFrontendLog(level, message, meta) {
+export function sendFrontendLog( message) {
   const url = "https://express1.ru/backend/frontend-log";
 
   try {
@@ -237,13 +237,12 @@ export function sendFrontendLog(level, message, meta) {
       body: JSON.stringify(payload)
     });
 
-   
-    return text; // возвращаем ответ, чтобы можно было использовать дальше
   } catch (err) {
     console.error("Ошибка отправки лога:", err);
     throw err;
   }
 }
+
 // =============================================
 // Перехват console.log / warn / error и отправка на бэкенд
 // =============================================
