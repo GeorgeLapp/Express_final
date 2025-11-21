@@ -27,7 +27,7 @@ export class FonbetStream extends EventEmitter {
   constructor({
     host = 'line32w.bk6bba-resources.com',
     lang = 'ru',
-    scopeMarket = 10,
+    scopeMarket = 1600,
     pollInterval = 4000,
     sportsFilter = ['Футбол', 'Теннис', 'Хоккей']
   } = {}) {
