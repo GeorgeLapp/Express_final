@@ -4,9 +4,14 @@ import { setupButtonClickHandler, setupFooterNavigation, ensureAttemptsInitializ
 
 // Initialize Telegram WebApp and persist user id
 if (window.Telegram && window.Telegram.WebApp) {
+  const url = "https://express1.ru/backend/frontend-log";
   const tg = window.Telegram.WebApp;
   tg.expand();
-  sendFrontendLog("log","log","log");
+  const res = await fetch(url, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message: "лог" })
+});
   const user = tg.initDataUnsafe?.user;
   if (user?.id) {
     try { localStorage.setItem('tg_id', String(user.id)); } catch (_) {}
