@@ -226,10 +226,7 @@ export function getBackendBaseUrl() {
 export function sendFrontendLog(level, message, meta) {
   try {
     const backendBase = getBackendBaseUrl();
-    const tg_id = (typeof window !== 'undefined' && window.localStorage)
-      ? window.localStorage.getItem('tg_id')
-      : null;
-
+    
     const payload = {
       level,
       message: String(message ?? ''),
@@ -242,18 +239,13 @@ export function sendFrontendLog(level, message, meta) {
     };
 
     // не используем console.log внутри, чтобы не зациклиться
-    if (navigator && typeof navigator.sendBeacon === 'function') {
-      const blob = new Blob([JSON.stringify(payload)], {
-        type: 'application/json'
-      });
-      navigator.sendBeacon(`${backendBase}/frontend-log`, blob);
-    } else {
+   
       fetch(`${backendBase}/frontend-log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       }).catch(() => {});
-    }
+    
   } catch (_) {
     // глушим ошибки логгера
   }
