@@ -4,7 +4,6 @@ import { setupButtonClickHandler, setupFooterNavigation, ensureAttemptsInitializ
 
 // Initialize Telegram WebApp and persist user id
 if (window.Telegram && window.Telegram.WebApp) {
-  sendFrontendLog("лог в main заработал");
   console.log('Frontend Log:');
   const tg = Telegram.WebApp;
   const user = tg.initDataUnsafe?.user;
@@ -31,6 +30,5 @@ if (window.Telegram && window.Telegram.WebApp) {
 
 // Initialize attempts on first app load
 ensureAttemptsInitialized(0);
-console.log('Frontend Log:2222');
 setupButtonClickHandler('wakeup-guru-button', 'choose-page.html');
 setupFooterNavigation();
