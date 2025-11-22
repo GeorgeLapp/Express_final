@@ -1,4 +1,4 @@
-import { setupFooterNavigation, backButtonClickHandler, getTelegramUser } from "./utils2.js";
+import { setupFooterNavigation, backButtonClickHandler, getTelegramUser } from "./utils.js";
 
 setupFooterNavigation('profile');
 backButtonClickHandler('index.html');
