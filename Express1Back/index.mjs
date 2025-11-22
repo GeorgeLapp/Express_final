@@ -156,8 +156,8 @@ export class FonbetStream extends EventEmitter {
         if (factor && Array.isArray(factor.factors)) {
           for (const f of factor.factors) {
             if (f.f === 921) eventObj.outcome1 = f.v;
-            if (f.f === 922) eventObj.outcome2 = f.v;
-            if (f.f === 923) eventObj.outcomeX = f.v;
+            if (f.f === 922) eventObj.outcomeX = f.v;
+            if (f.f === 923) eventObj.outcome2 = f.v;
           }
         }
         // Для тенниса переносим outcomeX в outcome2
@@ -201,8 +201,8 @@ export class FonbetStream extends EventEmitter {
         let com1 = '', com2 = '', comx = '';
         for (const factor of f.factors) {
           if (factor.f === 921) com1 = factor.v;
-          if (factor.f === 922) com2 = factor.v;
-          if (factor.f === 923) comx = factor.v;
+          if (factor.f === 922) comx = factor.v;
+          if (factor.f === 923) com2 = factor.v;
         }
         this.emit('factor', `${f.e} ${com1} ${comx} ${com2}`);
       }
