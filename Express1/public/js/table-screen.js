@@ -46,11 +46,12 @@ async function initTableScreen(tg_id) {
       const expanded = Array.from(new Set(activeSports.flatMap(expand)));
       url.searchParams.set('sport', expanded.join(','));
     }
-
+    
     const res = await fetch(url.toString());
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
+    console.log(url.toString(),"\n",data);
     if (!Array.isArray(data)) {
       const msg = data && data.error ? data.error : 'No data';
       throw new Error(`Backend error: ${msg}`);
