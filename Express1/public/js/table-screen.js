@@ -6,7 +6,7 @@ import {
   getBackendBaseUrl,
   getTelegramUser,
   sendFrontendLog
-} from "./utils2.js";
+} from "./utils.js";
 async function initTableScreen(tg_id) {
   sendFrontendLog("лог в table заработал");
   const mainContent = document.querySelector('.main-content');

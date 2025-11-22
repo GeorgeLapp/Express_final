@@ -1,6 +1,6 @@
 // /public/js/main.js
 
-import { setupButtonClickHandler, setupFooterNavigation, ensureAttemptsInitialized, getBackendBaseUrl,sendFrontendLog } from "./utils2.js";
+import { setupButtonClickHandler, setupFooterNavigation, ensureAttemptsInitialized, getBackendBaseUrl,sendFrontendLog } from "./utils.js";
 
 // Initialize Telegram WebApp and persist user id
 if (window.Telegram && window.Telegram.WebApp) {
