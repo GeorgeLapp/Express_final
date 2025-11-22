@@ -125,9 +125,9 @@ function createActionButtons() {
   const saveButton = document.createElement('button');
   saveButton.classList.add('action-button', 'share-button');
   saveButton.textContent = 'SAVE TO MIND';
-  saveButton.addEventListener('click', () => {
+  /*saveButton.addEventListener('click', () => {
     console.log('Сохранение пока не реализовано.');
-  });
+  });*/
 
   buttonsContainer.append(betAgainButton, saveButton);
   return buttonsContainer;

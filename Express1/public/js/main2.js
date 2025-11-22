@@ -4,7 +4,7 @@ import { setupButtonClickHandler, setupFooterNavigation, ensureAttemptsInitializ
 
 // Initialize Telegram WebApp and persist user id
 if (window.Telegram && window.Telegram.WebApp) {
-  console.log('Frontend Log:');
+ // console.log('Frontend Log:');
   const tg = Telegram.WebApp;
   const user = tg.initDataUnsafe?.user;
   if (user?.id) {

@@ -76,7 +76,7 @@ export function backButtonClickHandler(targetUrl) {
   footerButtons.forEach(button => {
     if (button.dataset.page === currentPage) {
       button.classList.add('active');
-      console.log(`Active added to:`, button);
+     // console.log(`Active added to:`, button);
     }
 
     // Навигация при клике
@@ -223,7 +223,7 @@ export function getBackendBaseUrl() {
   return trimTrailingSlash(location.origin) + '/backend';
 }
 export function sendFrontendLog( message) {
-  console.log('Frontend Log:', message);
+  //console.log('Frontend Log:', message);
   const url = "https://express1.ru/backend/frontend-log";
 
   try {
