@@ -67,6 +67,7 @@ export class FonbetStream extends EventEmitter {
   async _tick () {
     try {
       const url = `https://${this.host}/events/list?lang=${this.lang}&version=${this._version}&scopeMarket=${this.scopeMarket}`;
+      //https://line32w.bk6bba-resources.com/events/list?lang=ru&version=12431324&scopeMarket=1600
       const res = await fetchFn(url, { timeout: 10000 });
       if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
       const json = await res.json();
@@ -161,10 +162,7 @@ export class FonbetStream extends EventEmitter {
           }
         }
         // Для тенниса переносим outcomeX в outcome2
-        if (sportName && sportName.toLowerCase() === 'теннис') {
-          eventObj.outcome2 = eventObj.outcomeX;
-          eventObj.outcomeX = undefined;
-        }
+  
         if (eventObj.isValid()) {
           const db = await dbPromise;
           // Проверяем, есть ли уже такое событие
