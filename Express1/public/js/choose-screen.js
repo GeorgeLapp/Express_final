@@ -25,7 +25,7 @@ try {
     } catch (_) {}
 
     const backendBaseUrl = getBackendBaseUrl();
-    fetch(`${backendBaseUrl}/getUser/${tgUser.id}`)
+    fetch(`${backendBaseUrl}/user/${tgUser.id}`)
       .then(res =>
         res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))
       )

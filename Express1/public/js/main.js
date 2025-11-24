@@ -12,7 +12,7 @@ if (window.Telegram && window.Telegram.WebApp) {
     // Ensure server-side user exists and sync initial attempts
     const backendBaseUrl = getBackendBaseUrl();
     try {
-      fetch(`${backendBaseUrl}/getUser/${user.id}`)
+      fetch(`${backendBaseUrl}/user/${user.id}`)
         .then(res => (res.ok ? res.json() : null))
         .then(data => {
           if (data && typeof data.attempts === 'number') {
