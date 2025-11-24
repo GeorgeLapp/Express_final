@@ -93,6 +93,16 @@ app.get('/events', async (req, res) => {
   let user_attempts = null;
   let userEvents = [];
 
+  // нормализуем диапазон коэффициентов
+  let min = Number.isFinite(parseFloat(min_coef)) ? parseFloat(min_coef) : null;
+  let max = Number.isFinite(parseFloat(max_coef)) ? parseFloat(max_coef) : null;
+
+  if (min != null && max != null && min > max) {
+    const tmp = min;
+    min = max;
+    max = tmp;
+  }
+
   try {
     // --- работа с пользователем и попытками ---
     if (tg_id) {
@@ -146,100 +156,96 @@ app.get('/events', async (req, res) => {
       params.push(...userEvents);
     }
 
-    // фильтрация по коэффициентам
-    if (min_coef) {
-      const min = parseFloat(min_coef);
-      if (!Number.isNaN(min)) {
-        query += ' AND ( (outcome1 >= ?) OR (outcomeX >= ?) OR (outcome2 >= ?) )';
-        params.push(min, min, min);
-      }
-    }
+    // фильтрация по коэффициентам: хотя бы один исход в диапазоне
+    if (min != null || max != null) {
+      const realMin = min ?? 1.01; // можно 0, если хочешь
+      const realMax = max ?? 1000;
 
-    if (max_coef) {
-      const max = parseFloat(max_coef);
-      if (!Number.isNaN(max)) {
-        query += ' AND ( (outcome1 <= ?) OR (outcomeX <= ?) OR (outcome2 <= ?) )';
-        params.push(max, max, max);
-      }
+      query += `
+        AND (
+          (outcome1 BETWEEN ? AND ?)
+          OR (outcomeX BETWEEN ? AND ?)
+          OR (outcome2 BETWEEN ? AND ?)
+        )
+      `;
+      params.push(realMin, realMax, realMin, realMax, realMin, realMax);
     }
 
     // лимит по количеству событий
     query += ' ORDER BY RANDOM() LIMIT ' + requestedCount;
+
     const events = await db.all(query, ...params);
     if (!events.length) {
       return res.json([]);
-
     }
 
     // -------- 2. Баланс спортивных типов для мульти-выбора --------
     let eventsForProcessing = events;
 
-    if (sport) {
-      const sportsRequested = sport
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
+    // Группируем по реальному виду спорта
+    const bySport = new Map();
+    for (const e of events) {
+      const key = (e.sport || '').toString();
+      if (!key) continue;
+      if (!bySport.has(key)) bySport.set(key, []);
+      bySport.get(key).push(e);
+    }
 
-      // если выбрано 2+ вида спорта и получено событий больше, чем просили —
-      // делаем грубый баланс по видам
-      if (sportsRequested.length > 1 && events.length > requestedCount) {
-        const bySport = new Map();
+    // Если реально есть несколько видов спорта — балансируем выдачу
+    if (bySport.size > 1 && events.length > 1) {
+      // Перемешиваем внутри каждой группы
+      for (const [, list] of bySport) {
+        list.sort(() => Math.random() - 0.5);
+      }
 
-        for (const e of events) {
-          const key = (e.sport || '').toString();
-          if (!bySport.has(key)) bySport.set(key, []);
-          bySport.get(key).push(e);
+      const balanced = [];
+      const sportKeys = Array.from(bySport.keys());
+
+      // Round-robin по видам спорта до requestedCount или пока всё не кончится
+      while (balanced.length < requestedCount) {
+        let progressed = false;
+
+        for (const key of sportKeys) {
+          const list = bySport.get(key);
+          if (!list || !list.length) continue;
+          balanced.push(list.pop());
+          progressed = true;
+          if (balanced.length >= requestedCount) break;
         }
 
-        // немного перемешаем внутри групп на всякий случай
-        for (const [, list] of bySport) {
-          list.sort(() => Math.random() - 0.5);
-        }
+        if (!progressed) break; // все группы опустели
+      }
 
-        const balanced = [];
-        // round-robin по видам спорта, пока не набрали requestedCount или не кончились события
-        while (balanced.length < requestedCount) {
-          let progressed = false;
-          for (const [, list] of bySport) {
-            if (!list.length) continue;
-            balanced.push(list.pop());
-            progressed = true;
-            if (balanced.length >= requestedCount) break;
-          }
-          if (!progressed) break; // все группы пустые
-        }
-
-        if (balanced.length) {
-          eventsForProcessing = balanced;
-        }
+      if (balanced.length) {
+        eventsForProcessing = balanced;
       }
     }
 
-    // -------- 1. Выбор исхода с 70% ничьих --------
+    // -------- 3. Выбор исхода с учётом min/max и приоритета ничьей --------
     const filtered = eventsForProcessing
       .map(event => {
         const availableOutcomes = ['outcome1', 'outcomeX', 'outcome2'].filter(key => {
           const val = event[key];
-          return typeof val === 'number' && val > 0;
+          if (typeof val !== 'number' || val <= 0) return false;
+          if (min != null && val < min) return false;
+          if (max != null && val > max) return false;
+          return true;
         });
 
         if (!availableOutcomes.length) return null;
 
         let chosenKey;
-
         const hasDraw = availableOutcomes.includes('outcomeX');
         const rnd = Math.random();
 
+        // 70% — ничья, если она доступна
         if (hasDraw && rnd < 0.7) {
-          // 70% случаев — ничья
           chosenKey = 'outcomeX';
         } else {
-          // оставшиеся 30% — другие исходы (или если ничьи нет)
           const pool = hasDraw
             ? availableOutcomes.filter(k => k !== 'outcomeX')
             : availableOutcomes;
 
-          // если кроме ничьей ничего нет — всё равно показываем ничью
           if (!pool.length) {
             chosenKey = 'outcomeX';
           } else {
@@ -259,15 +265,18 @@ app.get('/events', async (req, res) => {
       return res.json([]);
     }
 
-    // --- запись показов и списание попыток ---
-    if (tg_id && user_id && filtered.length > 0) {
-      for (const e of filtered) {
-        await db.run(
-          'INSERT INTO user_event_shows (user_id, event_id, shown_outcome) VALUES (?, ?, ?)',
-          user_id,
-          e.id,
-          e.shownOutcome
-        );
+    // -------- 4. Логирование показанных событий + списание попытки --------
+    if (user_id) {
+      const insertStmt = await db.prepare(
+        'INSERT INTO user_event_shows (user_id, event_id, shown_outcome) VALUES (?, ?, ?)'
+      );
+
+      try {
+        for (const ev of filtered) {
+          await insertStmt.run(user_id, ev.id, ev.shownOutcome);
+        }
+      } finally {
+        await insertStmt.finalize();
       }
 
       // 1 запрос = 1 попытка
@@ -277,36 +286,11 @@ app.get('/events', async (req, res) => {
         user_id
       );
     }
+
     return res.json(filtered);
   } catch (err) {
     console.error('Error in /events:', err);
     return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/ensureUser/:tg_id', async (req, res) => {
-  const { tg_id } = req.params;
-
-  try {
-    let user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-    if (!user) {
-      await db.run(
-        'INSERT INTO users (tg_id, attempts) VALUES (?, ?)',
-        tg_id,
-        10 // стартовое количество попыток
-      );
-      user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-    }
-
-    // фронту в первую очередь важны attempts
-    res.json({
-      id: user.id,
-      tg_id: user.tg_id,
-      attempts: user.attempts
-    });
-  } catch (err) {
-    console.error('Error in /ensureUser:', err);
-    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

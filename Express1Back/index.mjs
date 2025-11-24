@@ -4,16 +4,83 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { EventModel } from './EventModel.mjs';
 import { initDB } from './db.mjs';
+
 let fetchFn;
 const __filename = fileURLToPath(import.meta.url);
 const isRunDirectly = process.argv[1] === __filename;
+
+// Поддержка fetch как в браузере, так и через node-fetch
 try {
+  // В новых версиях Node fetch есть глобально
+  // eslint-disable-next-line no-undef
   fetchFn = fetch;
 } catch (_) {
   fetchFn = (...args) => import('node-fetch').then(mod => mod.default(...args));
 }
 
+// Инициализация БД (один shared-инстанс)
 let dbPromise = initDB();
+
+// --- Бизнес-фильтры по видам спорта / турнирам / игрокам ---
+
+const FOOTBALL_TOURNAMENT_KEYWORDS = [
+  'россия',
+  'англия',
+  'италия',
+  'испания',
+  'германия',
+  'бельгия',
+  'бразилия',
+  'аргентина',
+  'кубок европ',      // "Кубок Европы"
+  'лига чемпионов',
+  'лига европы',
+  'лига конференций'
+];
+
+const HOCKEY_TOURNAMENT_KEYWORDS = [
+  'кхл',
+  'вхл',
+  'nhl',
+  'ahl'
+];
+
+// Имена топ-игроков для фильтрации тенниса (рус/латиница)
+// --- Бизнес-фильтры по видам спорта / турнирам ---
+
+// Допустимые турниры по видам спорта (всё в нижнем регистре)
+const FOOTBALL_TOURNAMENT_WHITELIST = [
+  'кубок мира',
+  'лига чемпионов',
+  'кубок уефа',
+  'россия. премьер-лига',
+  'англия. премьер-лига',
+  'германия. бундеслига',
+  'испания. примера дивизион',
+  'италия. серия а',
+  'португалия. премьер-лига',
+  'бельгия. премьер-лига',
+  'турция. суперлига',
+  'бразилия. серия а',
+];
+
+const HOCKEY_TOURNAMENT_WHITELIST = [
+  'кубок мира',
+  'кхл',
+  'нхл',
+];
+
+const TENNIS_TOURNAMENT_WHITELIST = [
+  'роллан-гаррос',
+  'уимблдон',
+  'кубок дэвиса',
+  'usa open',
+  'australian open',
+  'davis cup',
+  'itf',
+  'atp',
+];
+
 
 export class FonbetStream extends EventEmitter {
   /**
@@ -37,18 +104,19 @@ export class FonbetStream extends EventEmitter {
     this.scopeMarket = scopeMarket;
     this.pollInterval = pollInterval;
     this.sportsFilter = new Set(sportsFilter.map(s => s.toLowerCase()));
+
     this._version = 0;
     this._timer = null;
 
     this.cache = {
-      sports: new Map(),
-      events: new Map(),
-      markets: new Map(),
-      factors: new Map()
+      sports: new Map(),   // id -> объект вида спорта / сегмента
+      events: new Map(),   // id -> объект события
+      markets: new Map(),  // id -> маркет
+      factors: new Map()   // e -> customFactors
     };
 
-    this._allowedSportIds = new Set();
-    this.allowedMathesIds = new Set();
+    this._allowedSportIds = new Set(); // id видов спорта, прошедших фильтр
+    this.allowedMathesIds = new Set(); // id сегментов (чемпионатов), по которым берём матчи
   }
 
   // Запуск постоянного опроса
@@ -59,7 +127,9 @@ export class FonbetStream extends EventEmitter {
 
   // Остановка опроса
   stop () {
-    if (this._timer) clearTimeout(this._timer);
+    if (this._timer) {
+      clearTimeout(this._timer);
+    }
     this._timer = null;
   }
 
@@ -67,16 +137,20 @@ export class FonbetStream extends EventEmitter {
   async _tick () {
     try {
       const url = `https://${this.host}/events/list?lang=${this.lang}&version=${this._version}&scopeMarket=${this.scopeMarket}`;
-      //https://line32w.bk6bba-resources.com/events/list?lang=ru&version=12431324&scopeMarket=1600
       const res = await fetchFn(url, { timeout: 10000 });
-      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      }
+
       const json = await res.json();
-      this._process(json);
+      await this._process(json);
       this._version = json.packetVersion;
     } catch (err) {
       this.emit('error', err);
     } finally {
-      this._timer = setTimeout(() => this._tick(), this.pollInterval);
+      if (this.pollInterval > 0) {
+        this._timer = setTimeout(() => this._tick(), this.pollInterval);
+      }
     }
   }
 
@@ -85,21 +159,45 @@ export class FonbetStream extends EventEmitter {
     return this.sportsFilter.has(String(sportObj.name).toLowerCase());
   }
 
-  // Проверка: входит ли матч в нужный сегмент
+  // Проверка: входит ли матч в нужный сегмент (чемпионат)
   _matchAllowedMatch (sportObj) {
     return this._allowedSportIds.has(sportObj.parentId);
   }
 
+  // Бизнес-фильтр: оставляем только нужные чемпионаты/игроков
+    _eventMatchesFilter ({ sportName, tournamentName, team1, team2 }) {
+    const sport = (sportName || '').toLowerCase();
+    const tournament = (tournamentName || '').toLowerCase();
+
+    // Футбол: только заданные турниры
+    if (sport === 'футбол') {
+      return FOOTBALL_TOURNAMENT_WHITELIST.some(kw => tournament.includes(kw));
+    }
+
+    // Хоккей: только заданные турниры
+    if (sport === 'хоккей') {
+      return HOCKEY_TOURNAMENT_WHITELIST.some(kw => tournament.includes(kw));
+    }
+
+    // Теннис: только заданные турниры
+    if (sport === 'теннис') {
+      return TENNIS_TOURNAMENT_WHITELIST.some(kw => tournament.includes(kw));
+    }
+
+    // Остальные виды спорта в БД не пишем
+    return false;
+  }
   // Основная обработка пакета данных
   async _process (data) {
     const { sports = [], events = [], markets = [], customFactors = [], deleted = [] } = data;
 
-    // Обработка и фильтрация справочника спорта
+    // Обработка и фильтрация справочника спорта (вид спорта + сегменты/чемпы)
     for (const obj of sports) {
       const objId = obj.id ?? obj.sportId;
-      const prev = this.cache.sports.get(objId);
-      const changed = !prev || JSON.stringify(prev) !== JSON.stringify(obj);
-      if (changed) this.cache.sports.set(objId, obj);
+      if (objId == null) continue;
+
+      // Кэшируем справочник спорта без глубокого сравнения
+      this.cache.sports.set(objId, obj);
 
       if (obj.kind === 'sport' && this._matchAllowedSport(obj)) {
         this._allowedSportIds.add(objId);
@@ -112,98 +210,149 @@ export class FonbetStream extends EventEmitter {
       }
     }
 
+    // Прединдексация коэффициентов по id события
+    const factorsByEventId = new Map();
+    for (const cf of customFactors) {
+      if (cf && cf.e != null) {
+        factorsByEventId.set(cf.e, cf);
+      }
+    }
+
     // Обработка событий
     const allowedEventIds = new Set();
+    const eventsToInsert = [];
+
     for (const ev of events) {
       const sportId = ev.sportId ?? ev.kindId ?? ev.sport ?? null;
       if (!this.allowedMathesIds.has(sportId) || ev.level !== 1) continue;
-      const evId = ev.id ?? ev.eventId;
-      allowedEventIds.add(evId);
 
-      const prev = this.cache.events.get(evId);
-      const changed = !prev || JSON.stringify(prev) !== JSON.stringify(ev);
-      if (changed) {
+      const evId = ev.id ?? ev.eventId;
+      if (evId == null) continue;
+
+      // Если событие уже есть в кэше — считаем, что уже обрабатывали
+      if (this.cache.events.has(evId)) {
+        continue;
+      }
+
+      // Получаем название вида спорта и турнира
+      let sportName = '';
+      let tournamentName = '';
+      const sportObj = this.cache.sports.get(sportId);
+
+      if (sportObj && sportObj.kind === 'segment') {
+        // Если это сегмент, ищем родительский спорт
+        const parentSport = this.cache.sports.get(sportObj.parentId);
+        if (parentSport && parentSport.kind === 'sport') {
+          sportName = parentSport.name;
+          tournamentName = sportObj.name;
+        }
+      } else if (sportObj && sportObj.kind === 'sport') {
+        sportName = sportObj.name;
+        tournamentName = '';
+      }
+
+      const eventObj = new EventModel({
+        id: evId,
+        sport: sportName,
+        tournament: tournamentName,
+        team1: ev.team1,
+        team2: ev.team2,
+        startTime: ev.startTime || ev.start || '',
+        outcome1: undefined,
+        outcomeX: undefined,
+        outcome2: undefined,
+        status: ev.status ?? null
+      });
+
+      // Коэффициенты ищем в прединдексированной карте
+      const factor = factorsByEventId.get(evId);
+      if (factor && Array.isArray(factor.factors)) {
+        for (const f of factor.factors) {
+          if (f.f === 921) eventObj.outcome1 = f.v; // победа 1
+          if (f.f === 922) eventObj.outcomeX = f.v; // ничья (если есть)
+          if (f.f === 923) eventObj.outcome2 = f.v; // победа 2
+        }
+      }
+
+      // Применяем бизнес-фильтр по виду спорта/турниру/игрокам
+      if (!this._eventMatchesFilter({
+        sportName,
+        tournamentName,
+        team1: eventObj.team1,
+        team2: eventObj.team2
+      })) {
+        // Всё равно кэшируем базовую инфу, чтобы второй раз не разбирать это событие
         this.cache.events.set(evId, ev);
+        continue;
+      }
+
+      // В БД пишем только валидные события
+      if (eventObj.isValid()) {
+        this.cache.events.set(evId, ev);
+        allowedEventIds.add(evId);
+        eventsToInsert.push(eventObj);
         this.emit('event', ev);
-        // --- Сохраняем событие в БД ---
-        // Получаем название вида спорта
-        let sportName = '';
-        let tournamentName = '';
-        const sportObj = this.cache.sports.get(sportId);
-        if (sportObj && sportObj.kind === 'segment') {
-          // Если это сегмент, ищем родительский спорт
-          const parentSport = this.cache.sports.get(sportObj.parentId);
-          if (parentSport && parentSport.kind === 'sport') {
-            sportName = parentSport.name;
-            tournamentName = sportObj.name;
-          }
-        } else if (sportObj && sportObj.kind === 'sport') {
-          sportName = sportObj.name;
-          tournamentName = '';
+      }
+    }
+
+    // Пакетное сохранение в БД (INSERT OR IGNORE, чтобы не ловить дубль по PRIMARY KEY)
+    if (eventsToInsert.length > 0) {
+      const db = await dbPromise;
+      await db.exec('BEGIN');
+      try {
+        const stmt = await db.prepare(
+          'INSERT OR IGNORE INTO events (id, sport, tournament, team1, team2, startTime, outcome1, outcomeX, outcome2) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+
+        for (const e of eventsToInsert) {
+          await stmt.run(
+            e.id,
+            e.sport,
+            e.tournament,
+            e.team1,
+            e.team2,
+            e.startTime,
+            e.outcome1,
+            e.outcomeX,
+            e.outcome2
+          );
         }
-        const eventObj = new EventModel({
-          id: evId,
-          sport: sportName,
-          tournament: tournamentName,
-          team1: ev.team1,
-          team2: ev.team2,
-          startTime: ev.startTime || ev.start || '',
-          outcome1: undefined,
-          outcomeX: undefined,
-          outcome2: undefined
-        });
-        // Коэффициенты ищем в customFactors
-        const factor = customFactors.find(f => f.e === evId);
-        if (factor && Array.isArray(factor.factors)) {
-          for (const f of factor.factors) {
-            if (f.f === 921) eventObj.outcome1 = f.v;
-            if (f.f === 922) eventObj.outcomeX = f.v;
-            if (f.f === 923) eventObj.outcome2 = f.v;
-          }
-        }
-        // Для тенниса переносим outcomeX в outcome2
-  
-        if (eventObj.isValid()) {
-          const db = await dbPromise;
-          // Проверяем, есть ли уже такое событие
-          const exists = await db.get('SELECT id FROM events WHERE id = ?', eventObj.id);
-          if (!exists) {
-            await db.run(
-              'INSERT INTO events (id, sport, tournament, team1, team2, startTime, outcome1, outcomeX, outcome2) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-              eventObj.id, eventObj.sport, eventObj.tournament, eventObj.team1, eventObj.team2, eventObj.startTime, eventObj.outcome1, eventObj.outcomeX, eventObj.outcome2
-            );
-          }
-        }
-        // --- конец блока сохранения ---
+
+        await stmt.finalize();
+        await db.exec('COMMIT');
+      } catch (err) {
+        await db.exec('ROLLBACK');
+        this.emit('error', err);
       }
     }
 
     // Обработка маркетов
     for (const m of markets) {
       const mId = m.id;
-      const prev = this.cache.markets.get(mId);
-      const changed = !prev || JSON.stringify(prev) !== JSON.stringify(m);
-      if (changed) {
-        this.cache.markets.set(mId, m);
-        this.emit('market', m);
-      }
+      if (mId == null) continue;
+      // Кэшируем маркет без глубокого сравнения и сразу эмитим событие
+      this.cache.markets.set(mId, m);
+      this.emit('market', m);
     }
 
-    // Обработка коэффициентов
+    // Обработка коэффициентов (для событий, прошедших фильтрацию)
     for (const f of customFactors) {
-      if (!allowedEventIds.has(f.e)) continue;
-      const prev = this.cache.factors.get(f.e);
-      const changed = !prev || JSON.stringify(prev) !== JSON.stringify(f);
-      if (changed) {
-        this.cache.factors.set(f.e, f);
-        let com1 = '', com2 = '', comx = '';
+      if (!f || !allowedEventIds.has(f.e)) continue;
+
+      // Кэшируем коэффициенты без глубокого сравнения
+      this.cache.factors.set(f.e, f);
+
+      let com1 = '';
+      let com2 = '';
+      let comx = '';
+      if (Array.isArray(f.factors)) {
         for (const factor of f.factors) {
           if (factor.f === 921) com1 = factor.v;
           if (factor.f === 922) comx = factor.v;
           if (factor.f === 923) com2 = factor.v;
         }
-        this.emit('factor', `${f.e} ${com1} ${comx} ${com2}`);
       }
+      this.emit('factor', `${f.e} ${com1} ${comx} ${com2}`);
     }
 
     // Обработка удалённых объектов
@@ -213,11 +362,12 @@ export class FonbetStream extends EventEmitter {
       this.emit('delete', id);
     }
 
+    // Краткая сводка по пакету
     this.emit('update', {
       sports: sports.length,
       events: allowedEventIds.size,
       markets: markets.length,
-      factors: customFactors.filter(f => allowedEventIds.has(f.e)).length,
+      factors: customFactors.filter(f => f && allowedEventIds.has(f.e)).length,
       deleted: deleted?.length || 0,
       packetVersion: data.packetVersion
     });
@@ -228,12 +378,13 @@ export class FonbetStream extends EventEmitter {
 if (isRunDirectly) {
   const stream = new FonbetStream({ pollInterval: 5000 });
 
-  console.log('Запуск: фильтруем только Футбол, Теннис, Хоккей');
+  console.log('Запуск: фильтруем Футбол (топ-чемпы), Хоккей (КХЛ/ВХЛ/NHL/AHL) и Теннис (топ-игроки)');
 
   stream.on('sport', s => console.log('[sport ]', s.name));
-  stream.on('event', e => console.log('[event ]', `${e.team1} – ${e.team2}`));
+  stream.on('event', e => console.log('[event ]', `${e.sport} / ${e.tournament} | ${e.team1} – ${e.team2}`));
   stream.on('factor', f => console.log('[factor]', f));
   stream.on('update', info => console.log('[batch ]', info));
   stream.on('error', console.error);
+
   stream.start();
 }
