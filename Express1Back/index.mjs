@@ -375,7 +375,7 @@ export class FonbetStream extends EventEmitter {
 }
 
 // Пример запуска (если файл запущен напрямую)
-if (isRunDirectly) {
+//if (isRunDirectly) {
   const stream = new FonbetStream({ pollInterval: 5000 });
 
   console.log('Запуск: фильтруем Футбол (топ-чемпы), Хоккей (КХЛ/ВХЛ/NHL/AHL) и Теннис (топ-игроки)');
@@ -387,4 +387,4 @@ if (isRunDirectly) {
   stream.on('error', console.error);
 
   stream.start();
-}
+//}
