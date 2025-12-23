@@ -5,7 +5,6 @@ import {
   setupFooterNavigation,
   ensureAttemptsInitialized,
   getAttemptsLeft,
-  decrementAttempt,
   getTelegramUser,
   getBackendBaseUrl
 } from "./utils.js";
@@ -175,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Попытки закончились. Пополните баланс попыток.');
       return false;
     }
-    decrementAttempt();
     return true;
   });
 });

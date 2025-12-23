@@ -5,7 +5,8 @@ import {
   mapSportToImage,
   getBackendBaseUrl,
   getTelegramUser,
-  sendFrontendLog
+  sendFrontendLog,
+  decrementAttempt
 } from "./utils.js";
 async function initTableScreen(tg_id) {
   sendFrontendLog("лог в table заработал");
@@ -62,6 +63,10 @@ async function initTableScreen(tg_id) {
       return;
     }
 
+    if (tg_id) {
+      decrementAttempt();
+    }
+
     let product = 1;
     const tableScroll = document.createElement('div');
     tableScroll.classList.add('table-scroll', 'table-scroll-main');
@@ -75,7 +80,7 @@ async function initTableScreen(tg_id) {
 
     mainContent.appendChild(tableScroll);
     mainContent.appendChild(createTotalsBlock(product));
-    mainContent.appendChild(createActionButtons());
+    mainContent.appendChild(createActionButtons({ tg_id, events }));
   } catch (error) {
     console.error(error);
     mainContent.innerHTML = `<p class="error">Ошибка при загрузке событий: ${error?.message || 'unknown'}</p>`;
@@ -111,7 +116,27 @@ function createTableRow(event) {
   return row;
 }
 
-function createActionButtons() {
+async function saveHistory(tg_id, events) {
+  const payload = {
+    tg_id,
+    events: (events || [])
+      .map(ev => ({ id: ev?.id, shownOutcome: ev?.shownOutcome }))
+      .filter(ev => ev.id && ev.shownOutcome)
+  };
+
+  if (!payload.tg_id || !payload.events.length) return { ok: false, saved: 0 };
+
+  const backendBaseUrl = getBackendBaseUrl();
+  const res = await fetch(`${backendBaseUrl}/saveHistory`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function createActionButtons({ tg_id, events }) {
   sendFrontendLog("лог в table заработал");
   const buttonsContainer = document.createElement('div');
   buttonsContainer.classList.add('buttons-container');
@@ -126,9 +151,21 @@ function createActionButtons() {
   const saveButton = document.createElement('button');
   saveButton.classList.add('action-button', 'share-button');
   saveButton.textContent = 'SAVE TO MIND';
-  /*saveButton.addEventListener('click', () => {
-    console.log('Сохранение пока не реализовано.');
-  });*/
+  saveButton.addEventListener('click', async () => {
+    if (!tg_id) {
+      alert('Telegram ID not found.');
+      return;
+    }
+    saveButton.disabled = true;
+    try {
+      await saveHistory(tg_id, events);
+    } catch (err) {
+      console.error('Save history failed', err);
+      alert('Failed to save history.');
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
 
   buttonsContainer.append(betAgainButton, saveButton);
   return buttonsContainer;

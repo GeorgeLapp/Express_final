@@ -93,8 +93,6 @@ app.get('/events', async (req, res) => {
 
   let user_id = null;
   let user_attempts = null;
-  let userEvents = [];
-
   // нормализуем диапазон коэффициентов
   let min = Number.isFinite(parseFloat(min_coef)) ? parseFloat(min_coef) : null;
   let max = Number.isFinite(parseFloat(max_coef)) ? parseFloat(max_coef) : null;
@@ -119,11 +117,6 @@ app.get('/events', async (req, res) => {
             .json({ error: `У вас недостаточно попыток! Осталось: ${user_attempts}` });
         }
 
-        const shownRows = await db.all(
-          'SELECT event_id FROM user_event_shows WHERE user_id = ?',
-          user_id
-        );
-        userEvents = shownRows.map(r => r.event_id);
       }
     }
 
@@ -160,12 +153,6 @@ app.get('/events', async (req, res) => {
       OR (CAST(startTime AS INTEGER) BETWEEN ? AND ?)
     )`;
     params.push(nowSeconds, maxStartTimeSeconds, nowSeconds * 1000, maxStartTimeSeconds * 1000);
-
-    // исключаем уже показанные события
-    if (userEvents.length > 0) {
-      query += ` AND id NOT IN (${userEvents.map(() => '?').join(',')})`;
-      params.push(...userEvents);
-    }
 
     // фильтрация по коэффициентам: хотя бы один исход в диапазоне
     if (min != null || max != null) {
@@ -268,6 +255,9 @@ app.get('/events', async (req, res) => {
         eventsForProcessing = balanced;
       }
     }
+
+    // Финальное перемешивание, чтобы выдачи не повторялись по порядку
+    eventsForProcessing = eventsForProcessing.sort(() => Math.random() - 0.5);
 
     // -------- 3. Выбор исхода с учётом min/max и приоритетов --------
     const filtered = eventsForProcessing
@@ -376,21 +366,8 @@ app.get('/events', async (req, res) => {
       return res.json([]);
     }
 
-    // -------- 4. Логирование показанных событий + списание попытки --------
+    // -------- 4. Списание попытки (историю пишем только по Save) --------
     if (user_id) {
-      const insertStmt = await db.prepare(
-        'INSERT INTO user_event_shows (user_id, event_id, shown_outcome) VALUES (?, ?, ?)'
-      );
-
-      try {
-        for (const ev of filtered) {
-          await insertStmt.run(user_id, ev.id, ev.shownOutcome);
-        }
-      } finally {
-        await insertStmt.finalize();
-      }
-
-      // 1 запрос = 1 попытка
       await db.run(
         'UPDATE users SET attempts = attempts - ? WHERE id = ?',
         ATTEMPT_COST,
@@ -508,6 +485,35 @@ app.get('/userHistory/:tg_id', async (req, res) => {
     };
   });
   res.json(history);
+});
+
+app.post('/saveHistory', async (req, res) => {
+  const { tg_id, events } = req.body || {};
+  if (!tg_id || !Array.isArray(events) || events.length === 0) {
+    return res.status(400).json({ error: 'tg_id и events обязательны' });
+  }
+
+  const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const insertStmt = await db.prepare(
+    'INSERT INTO user_event_shows (user_id, event_id, shown_outcome) VALUES (?, ?, ?)'
+  );
+
+  let saved = 0;
+  try {
+    for (const ev of events) {
+      const eventId = ev?.id ?? ev?.event_id;
+      const shownOutcome = ev?.shownOutcome ?? ev?.shown_outcome;
+      if (!eventId || !shownOutcome) continue;
+      await insertStmt.run(user.id, String(eventId), String(shownOutcome));
+      saved += 1;
+    }
+  } finally {
+    await insertStmt.finalize();
+  }
+
+  return res.json({ ok: true, saved });
 });
 
 /**
