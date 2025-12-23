@@ -177,9 +177,22 @@ app.get('/events', async (req, res) => {
           (outcome1 BETWEEN ? AND ?)
           OR (outcomeX BETWEEN ? AND ?)
           OR (outcome2 BETWEEN ? AND ?)
+          OR (outcome1X BETWEEN ? AND ?)
+          OR (outcomeX2 BETWEEN ? AND ?)
         )
       `;
-      params.push(realMin, realMax, realMin, realMax, realMin, realMax);
+      params.push(
+        realMin,
+        realMax,
+        realMin,
+        realMax,
+        realMin,
+        realMax,
+        realMin,
+        realMax,
+        realMin,
+        realMax
+      );
     }
 
     // Fetch candidates; when multiple sports requested, balance across them.
@@ -256,10 +269,11 @@ app.get('/events', async (req, res) => {
       }
     }
 
-    // -------- 3. Выбор исхода с учётом min/max и приоритета ничьей --------
+    // -------- 3. Выбор исхода с учётом min/max и приоритетов --------
     const filtered = eventsForProcessing
       .map(event => {
-        const availableOutcomes = ['outcome1', 'outcomeX', 'outcome2'].filter(key => {
+        const outcomeKeys = ['outcome1', 'outcomeX', 'outcome2', 'outcome1X', 'outcomeX2'];
+        const availableOutcomes = outcomeKeys.filter(key => {
           const val = event[key];
           if (typeof val !== 'number' || val <= 0) return false;
           if (min != null && val < min) return false;
@@ -269,24 +283,96 @@ app.get('/events', async (req, res) => {
 
         if (!availableOutcomes.length) return null;
 
-        let chosenKey;
-        const hasDraw = availableOutcomes.includes('outcomeX');
-        const rnd = Math.random();
+        const o1 = Number(event.outcome1);
+        const o2 = Number(event.outcome2);
+        const hasO1 = Number.isFinite(o1) && o1 > 0;
+        const hasO2 = Number.isFinite(o2) && o2 > 0;
+        const diff = hasO1 && hasO2 ? Math.abs(o1 - o2) : 0;
 
-        // 70% — ничья, если она доступна
-        if (hasDraw && rnd < 0.7) {
-          chosenKey = 'outcomeX';
-        } else {
-          const pool = hasDraw
-            ? availableOutcomes.filter(k => k !== 'outcomeX')
-            : availableOutcomes;
+        const underdogKey = hasO1 && hasO2 ? (o1 > o2 ? 'outcome1' : 'outcome2') : '';
+        const favoriteKey = hasO1 && hasO2 ? (o1 > o2 ? 'outcome2' : 'outcome1') : '';
+        const underdogDoubleKey =
+          underdogKey === 'outcome1'
+            ? 'outcome1X'
+            : underdogKey === 'outcome2'
+              ? 'outcomeX2'
+              : '';
+        const favoriteDoubleKey =
+          diff >= 2 && favoriteKey === 'outcome1'
+            ? 'outcome1X'
+            : diff >= 2 && favoriteKey === 'outcome2'
+              ? 'outcomeX2'
+              : '';
 
-          if (!pool.length) {
-            chosenKey = 'outcomeX';
-          } else {
-            chosenKey = pool[Math.floor(Math.random() * pool.length)];
+        const sportName = (event.sport || '').toString().toLowerCase();
+        const isTennis = sportName.includes('теннис') || sportName.includes('tennis');
+
+        const pickRandom = (pool) => pool[Math.floor(Math.random() * pool.length)];
+
+        let chosenKey = '';
+
+        if (isTennis) {
+          const tennisPool = availableOutcomes.filter(k => k === 'outcome1' || k === 'outcome2');
+          if (tennisPool.length === 1) {
+            chosenKey = tennisPool[0];
+          } else if (tennisPool.length === 2 && underdogKey && favoriteKey) {
+            chosenKey = Math.random() < 0.7 ? underdogKey : favoriteKey;
+            if (!tennisPool.includes(chosenKey)) {
+              chosenKey = pickRandom(tennisPool);
+            }
+          } else if (tennisPool.length) {
+            chosenKey = pickRandom(tennisPool);
           }
         }
+
+        if (!chosenKey) {
+          const group70 = [];
+          const group30 = [];
+
+          if (availableOutcomes.includes('outcomeX')) group70.push('outcomeX');
+          if (underdogDoubleKey && availableOutcomes.includes(underdogDoubleKey)) {
+            group70.push(underdogDoubleKey);
+          }
+
+          if (availableOutcomes.includes('outcome1')) group30.push('outcome1');
+          if (availableOutcomes.includes('outcome2')) group30.push('outcome2');
+          if (favoriteDoubleKey && availableOutcomes.includes(favoriteDoubleKey)) {
+            group30.push(favoriteDoubleKey);
+          }
+
+          let pool = [];
+          let usingGroup70 = false;
+
+          if (group70.length && group30.length) {
+            usingGroup70 = Math.random() < 0.7;
+            pool = usingGroup70 ? group70 : group30;
+          } else if (group70.length) {
+            usingGroup70 = true;
+            pool = group70;
+          } else if (group30.length) {
+            pool = group30;
+          } else {
+            pool = availableOutcomes;
+          }
+
+          if (
+            usingGroup70 &&
+            underdogDoubleKey &&
+            pool.includes(underdogDoubleKey) &&
+            pool.length > 1
+          ) {
+            if (Math.random() < 0.6) {
+              chosenKey = underdogDoubleKey;
+            } else {
+              const alt = pool.filter(k => k !== underdogDoubleKey);
+              chosenKey = alt.length ? pickRandom(alt) : underdogDoubleKey;
+            }
+          } else {
+            chosenKey = pickRandom(pool);
+          }
+        }
+
+        if (!chosenKey) return null;
 
         return {
           ...event,
@@ -401,14 +487,20 @@ app.get('/userHistory/:tg_id', async (req, res) => {
     let recommendedKey = '';
 
     if (shownOutcome === 'outcome1') {
-      recommendedLabel = '1 (победа команды 1)';
+      recommendedLabel = '1';
       recommendedKey = 'outcome1';
     } else if (shownOutcome === 'outcomex') {
-      recommendedLabel = 'X (ничья)';
+      recommendedLabel = 'X';
       recommendedKey = 'outcomeX';
     } else if (shownOutcome === 'outcome2') {
-      recommendedLabel = '2 (победа команды 2)';
+      recommendedLabel = '2';
       recommendedKey = 'outcome2';
+    } else if (shownOutcome === 'outcome1x') {
+      recommendedLabel = '1X';
+      recommendedKey = 'outcome1X';
+    } else if (shownOutcome === 'outcomex2') {
+      recommendedLabel = 'X2';
+      recommendedKey = 'outcomeX2';
     }
 
     const recommendedCoef = event && recommendedKey ? event[recommendedKey] : null;

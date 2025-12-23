@@ -151,6 +151,12 @@ export function mapOutcome(outcome) {
       return 'X';
     case 'outcome2':
       return '2';
+    case 'outcome1x':
+    case '1x':
+      return '1X';
+    case 'outcomex2':
+    case 'x2':
+      return 'X2';
     default:
       return '';
   }

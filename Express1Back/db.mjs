@@ -18,11 +18,22 @@ export async function initDB() {
       outcome1 REAL,
       outcomeX REAL,
       outcome2 REAL,
+      outcome1X REAL,
+      outcomeX2 REAL,
       status TEXT,
       results TEXT,
       winning_outcome TEXT
     );
   `);
+
+  const eventColumns = await db.all('PRAGMA table_info(events)');
+  const eventColumnNames = new Set(eventColumns.map(c => c.name));
+  if (!eventColumnNames.has('outcome1X')) {
+    await db.exec('ALTER TABLE events ADD COLUMN outcome1X REAL');
+  }
+  if (!eventColumnNames.has('outcomeX2')) {
+    await db.exec('ALTER TABLE events ADD COLUMN outcomeX2 REAL');
+  }
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (

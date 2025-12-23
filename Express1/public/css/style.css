@@ -673,6 +673,11 @@
   font-weight: bold;
 }
 
+.history-line .cell {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
 .cell-30 {
   width: 30%;
   text-align: center;

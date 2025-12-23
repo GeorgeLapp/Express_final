@@ -269,6 +269,8 @@ export class FonbetStream extends EventEmitter {
         outcome1: undefined,
         outcomeX: undefined,
         outcome2: undefined,
+        outcome1X: undefined,
+        outcomeX2: undefined,
         status: ev.status ?? null
       });
 
@@ -279,6 +281,8 @@ export class FonbetStream extends EventEmitter {
           if (f.f === 921) eventObj.outcome1 = f.v; // победа 1
           if (f.f === 922) eventObj.outcomeX = f.v; // ничья (если есть)
           if (f.f === 923) eventObj.outcome2 = f.v; // победа 2
+          if (f.f === 924) eventObj.outcome1X = f.v; // победа 1 или ничья
+          if (f.f === 925) eventObj.outcomeX2 = f.v; // победа 2 или ничья
         }
       }
 
@@ -309,7 +313,7 @@ export class FonbetStream extends EventEmitter {
       await db.exec('BEGIN');
       try {
         const stmt = await db.prepare(
-          'INSERT OR IGNORE INTO events (id, sport, tournament, team1, team2, startTime, outcome1, outcomeX, outcome2) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+          'INSERT OR IGNORE INTO events (id, sport, tournament, team1, team2, startTime, outcome1, outcomeX, outcome2, outcome1X, outcomeX2) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         for (const e of eventsToInsert) {
@@ -322,7 +326,9 @@ export class FonbetStream extends EventEmitter {
             e.startTime,
             e.outcome1,
             e.outcomeX,
-            e.outcome2
+            e.outcome2,
+            e.outcome1X,
+            e.outcomeX2
           );
         }
 

@@ -1,12 +1,15 @@
-import { backButtonClickHandler, setupFooterNavigation, mapOutcome, getBackendBaseUrl } from './utils.js';
+import { backButtonClickHandler, setupFooterNavigation, getBackendBaseUrl } from './utils.js';
 
 function formatRecommendedLabel(outcome) {
   const key = (outcome || '').toString().trim().toLowerCase();
-  if (key === 'outcome1') return '1 (победа команды 1)';
-  if (key === 'outcomex') return 'X (ничья)';
-  if (key === 'outcome2') return '2 (победа команды 2)';
+  if (key === 'outcome1') return '1';
+  if (key === 'outcomex') return 'X';
+  if (key === 'outcome2') return '2';
+  if (key === 'outcome1x') return '1X';
+  if (key === 'outcomex2') return 'X2';
   return '';
 }
+
 
 
 function createHistoryRow({ teams, recommended, coef, result }) {
@@ -103,11 +106,21 @@ async function initHistoryScreen() {
         else if (shownOutcome === 'outcome2') coef = item.event?.outcome2 ?? 1;
       }
 
-      let result = '';
+            let result = '';
       const winningOutcome = item.event?.winning_outcome?.trim?.()?.toLowerCase?.();
 
       if (winningOutcome && shownOutcome) {
-        result = winningOutcome === shownOutcome ? 'win' : 'lose';
+        if (shownOutcome === 'outcome1x') {
+          result = (winningOutcome === 'outcome1' || winningOutcome === 'outcomex')
+            ? 'win'
+            : 'lose';
+        } else if (shownOutcome === 'outcomex2') {
+          result = (winningOutcome === 'outcome2' || winningOutcome === 'outcomex')
+            ? 'win'
+            : 'lose';
+        } else {
+          result = winningOutcome === shownOutcome ? 'win' : 'lose';
+        }
       } else {
         result = 'pending';
       }
