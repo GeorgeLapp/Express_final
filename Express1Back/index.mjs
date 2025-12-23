@@ -81,6 +81,8 @@ const TENNIS_TOURNAMENT_WHITELIST = [
   'atp',
 ];
 
+const TEAM_NAME_BLACKLIST = new Set(['хозяева', 'гости']);
+
 
 export class FonbetStream extends EventEmitter {
   /**
@@ -165,9 +167,15 @@ export class FonbetStream extends EventEmitter {
   }
 
   // Бизнес-фильтр: оставляем только нужные чемпионаты/игроков
-    _eventMatchesFilter ({ sportName, tournamentName, team1, team2 }) {
+  _eventMatchesFilter ({ sportName, tournamentName, team1, team2 }) {
     const sport = (sportName || '').toLowerCase();
     const tournament = (tournamentName || '').toLowerCase();
+    const t1 = (team1 || '').trim().toLowerCase();
+    const t2 = (team2 || '').trim().toLowerCase();
+
+    if (TEAM_NAME_BLACKLIST.has(t1) || TEAM_NAME_BLACKLIST.has(t2)) {
+      return false;
+    }
 
     // Футбол: только заданные турниры
     if (sport === 'футбол') {

@@ -88,6 +88,8 @@ app.get('/events', async (req, res) => {
 
   const requestedCount = parseInt(count, 10) || 1; // сколько событий вернуть
   const ATTEMPT_COST = 1; // сколько попыток стоит один запрос
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const maxStartTimeSeconds = nowSeconds + 24 * 60 * 60;
 
   let user_id = null;
   let user_attempts = null;
@@ -149,6 +151,16 @@ app.get('/events', async (req, res) => {
     } else {
       query += ' AND status IS NULL';
     }
+
+    query += " AND COALESCE(LOWER(team1), '') NOT IN ('хозяева', 'гости')";
+    query += " AND COALESCE(LOWER(team2), '') NOT IN ('хозяева', 'гости')";
+
+    // Оставляем только события, которые стартуют в ближайшие 24 часа (sec/ms отметки)
+    query += ` AND (
+      (CAST(startTime AS INTEGER) BETWEEN ? AND ?)
+      OR (CAST(startTime AS INTEGER) BETWEEN ? AND ?)
+    )`;
+    params.push(nowSeconds, maxStartTimeSeconds, nowSeconds * 1000, maxStartTimeSeconds * 1000);
 
     // исключаем уже показанные события
     if (userEvents.length > 0) {
