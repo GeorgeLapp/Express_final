@@ -291,18 +291,10 @@ app.get('/events', async (req, res) => {
 
         const underdogKey = hasO1 && hasO2 ? (o1 > o2 ? 'outcome1' : 'outcome2') : '';
         const favoriteKey = hasO1 && hasO2 ? (o1 > o2 ? 'outcome2' : 'outcome1') : '';
-        const underdogDoubleKey =
-          underdogKey === 'outcome1'
-            ? 'outcome1X'
-            : underdogKey === 'outcome2'
-              ? 'outcomeX2'
-              : '';
-        const favoriteDoubleKey =
-          diff >= 2 && favoriteKey === 'outcome1'
-            ? 'outcome1X'
-            : diff >= 2 && favoriteKey === 'outcome2'
-              ? 'outcomeX2'
-              : '';
+        const hasClearUnderdog = diff > 2 && !!underdogKey;
+        const underdogDoubleKey = hasClearUnderdog
+          ? (underdogKey === 'outcome1' ? 'outcome1X' : 'outcomeX2')
+          : '';
 
         const sportName = (event.sport || '').toString().toLowerCase();
         const isTennis = sportName.includes('теннис') || sportName.includes('tennis');
@@ -336,9 +328,7 @@ app.get('/events', async (req, res) => {
 
           if (availableOutcomes.includes('outcome1')) group30.push('outcome1');
           if (availableOutcomes.includes('outcome2')) group30.push('outcome2');
-          if (favoriteDoubleKey && availableOutcomes.includes(favoriteDoubleKey)) {
-            group30.push(favoriteDoubleKey);
-          }
+          // двойной шанс фаворита не показываем
 
           let pool = [];
           let usingGroup70 = false;
@@ -473,7 +463,10 @@ app.get('/userHistory/:tg_id', async (req, res) => {
   const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
   if (!user) return res.status(404).json({ error: 'User not found' });
   // Получаем все user_event_shows для user_id
-  const shows = await db.all('SELECT * FROM user_event_shows WHERE user_id = ?', user.id);
+  const shows = await db.all(
+    'SELECT * FROM user_event_shows WHERE user_id = ? ORDER BY datetime(shown_at) DESC, id DESC',
+    user.id
+  );
   if (!shows.length) return res.json([]);
   // Получаем все события по event_id
   const eventIds = shows.map(s => s.event_id);

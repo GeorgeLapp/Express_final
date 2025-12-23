@@ -50,7 +50,7 @@ function createHistoryHeader() {
     <div class="divider"></div>
     <div class="cell cell-30">Рекомендация</div>
     <div class="divider"></div>
-    <div class="cell cell-20">Коэффициент</div>
+    <div class="cell cell-20">Коэфф</div>
     <div class="divider"></div>
     <div class="cell cell-20">Результат</div>
   `;
@@ -104,6 +104,8 @@ async function initHistoryScreen() {
         if (shownOutcome === 'outcome1') coef = item.event?.outcome1 ?? 1;
         else if (shownOutcome === 'outcomex') coef = item.event?.outcomeX ?? 1;
         else if (shownOutcome === 'outcome2') coef = item.event?.outcome2 ?? 1;
+        else if (shownOutcome === 'outcome1x') coef = item.event?.outcome1X ?? 1;
+        else if (shownOutcome === 'outcomex2') coef = item.event?.outcomeX2 ?? 1;
       }
 
             let result = '';

@@ -64,7 +64,7 @@ async function initTableScreen(tg_id) {
 
     let product = 1;
     const tableScroll = document.createElement('div');
-    tableScroll.classList.add('table-scroll');
+    tableScroll.classList.add('table-scroll', 'table-scroll-main');
 
     for (const event of events) {
       const row = createTableRow(event);
@@ -85,7 +85,7 @@ async function initTableScreen(tg_id) {
 function createTableRow(event) {
   sendFrontendLog("лог в table заработал");
   const row = document.createElement('div');
-  row.classList.add('table-line');
+  row.classList.add('table-line', 'table-line-main');
 
   const team1 = event.team1 || 'Team A';
   const team2 = event.team2 || 'Team B';
@@ -137,14 +137,10 @@ function createActionButtons() {
 function createTotalsBlock(product) {
   sendFrontendLog("лог в table заработал");
   const totalsWrapper = document.createElement('div');
-  totalsWrapper.classList.add('totals-wrapper');
-
-  const guruDiv = document.createElement('div');
-  guruDiv.classList.add('guru-center');
-  guruDiv.innerHTML = `<img src="./images/guru 2.png" alt="guru">`;
+  totalsWrapper.classList.add('totals-wrapper', 'totals-wrapper-main');
 
   const totals = document.createElement('div');
-  totals.classList.add('totals');
+  totals.classList.add('totals', 'totals-main');
 
   const formattedCoef = Number.isFinite(product) ? product.toFixed(2) : '—';
   const winAmountNum = Number.isFinite(product) ? product * 50 : 0;
@@ -158,7 +154,7 @@ function createTotalsBlock(product) {
     <div class="win-amount">${winAmount}</div>
   `;
 
-  totalsWrapper.append(guruDiv, totals);
+  totalsWrapper.append(totals);
   return totalsWrapper;
 }
 

@@ -576,6 +576,11 @@
   margin-top: 10px;
 }
 
+.totals-wrapper-main {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .guru-center {
   display: flex;
   justify-content: center; 
@@ -593,6 +598,10 @@
   right: 0;
   top: 0;
   text-align: right;
+}
+
+.totals-main {
+  position: static;
 }
 
 .coef-amount {
@@ -665,6 +674,15 @@
   overflow-y: auto;
 }
 
+.table-scroll-main {
+  max-height: none;
+  overflow-y: visible;
+}
+
+.table-line-main {
+  height: 50px;
+}
+
 /* history-screen*/
 .history-title {
   text-align: center;
@@ -674,7 +692,7 @@
 }
 
 .history-line .cell {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.2;
 }
 
