@@ -131,17 +131,16 @@ app.get('/events', async (req, res) => {
     let query = 'SELECT * FROM events WHERE 1=1';
     const params = [];
 
-    // фильтрация по спорту
-    if (sport) {
-      const sports = sport
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
+    const sportFilters = (sport || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    const uniqueSports = Array.from(new Set(sportFilters));
 
-      if (sports.length > 0) {
-        query += ` AND sport IN (${sports.map(() => '?').join(',')})`;
-        params.push(...sports);
-      }
+    // фильтрация по спорту
+    if (uniqueSports.length > 0) {
+      query += ` AND sport IN (${uniqueSports.map(() => '?').join(',')})`;
+      params.push(...uniqueSports);
     }
 
     // фильтрация по статусу
@@ -183,10 +182,34 @@ app.get('/events', async (req, res) => {
       params.push(realMin, realMax, realMin, realMax, realMin, realMax);
     }
 
-    // лимит по количеству событий
-    query += ' ORDER BY RANDOM() LIMIT ' + requestedCount;
+    // Fetch candidates; when multiple sports requested, balance across them.
+    let events = [];
+    let availableSports = [];
 
-    const events = await db.all(query, ...params);
+    if (uniqueSports.length > 1) {
+      const distinctQuery = query.replace(
+        'SELECT * FROM events',
+        'SELECT DISTINCT sport FROM events'
+      );
+      const distinctRows = await db.all(distinctQuery, ...params);
+      availableSports = distinctRows.map(r => r.sport).filter(Boolean);
+    }
+
+    if (availableSports.length > 1) {
+      const perSportFetch = Math.max(
+        requestedCount,
+        Math.ceil(requestedCount / availableSports.length) * 2
+      );
+
+      for (const s of availableSports) {
+        const sportQuery = `${query} AND sport = ? ORDER BY RANDOM() LIMIT ?`;
+        const sportEvents = await db.all(sportQuery, ...params, s, perSportFetch);
+        events.push(...sportEvents);
+      }
+    } else {
+      const eventsQuery = `${query} ORDER BY RANDOM() LIMIT ${requestedCount}`;
+      events = await db.all(eventsQuery, ...params);
+    }
     if (!events.length) {
       return res.json([]);
     }
