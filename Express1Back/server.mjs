@@ -396,9 +396,30 @@ app.get('/userHistory/:tg_id', async (req, res) => {
   // Формируем историю: объединяем show и event по event_id
   const history = shows.map(show => {
     const event = events.find(e => e.id === show.event_id);
+    const shownOutcome = (show.shown_outcome || '').toString().trim().toLowerCase();
+    let recommendedLabel = '';
+    let recommendedKey = '';
+
+    if (shownOutcome === 'outcome1') {
+      recommendedLabel = '1 (победа команды 1)';
+      recommendedKey = 'outcome1';
+    } else if (shownOutcome === 'outcomex') {
+      recommendedLabel = 'X (ничья)';
+      recommendedKey = 'outcomeX';
+    } else if (shownOutcome === 'outcome2') {
+      recommendedLabel = '2 (победа команды 2)';
+      recommendedKey = 'outcome2';
+    }
+
+    const recommendedCoef = event && recommendedKey ? event[recommendedKey] : null;
+    const teams = event ? [event.team1, event.team2].filter(Boolean).join(' / ') : '';
     return {
       ...show,
-      event
+      event,
+      teams,
+      recommended_outcome: show.shown_outcome,
+      recommended_label: recommendedLabel,
+      recommended_coef: recommendedCoef
     };
   });
   res.json(history);
