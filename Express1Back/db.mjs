@@ -39,10 +39,17 @@ export async function initDB() {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tg_id TEXT UNIQUE,
+      username TEXT,
       balance REAL DEFAULT 0,
       attempts INTEGER DEFAULT 0
     );
   `);
+
+  const userColumns = await db.all('PRAGMA table_info(users)');
+  const userColumnNames = new Set(userColumns.map(c => c.name));
+  if (!userColumnNames.has('username')) {
+    await db.exec('ALTER TABLE users ADD COLUMN username TEXT');
+  }
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS user_event_shows (
@@ -50,11 +57,18 @@ export async function initDB() {
       user_id INTEGER,
       event_id TEXT,
       shown_outcome TEXT,
+      username TEXT,
       shown_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(user_id) REFERENCES users(id),
       FOREIGN KEY(event_id) REFERENCES events(id)
     );
   `);
+
+  const userEventShowColumns = await db.all('PRAGMA table_info(user_event_shows)');
+  const userEventShowColumnNames = new Set(userEventShowColumns.map(c => c.name));
+  if (!userEventShowColumnNames.has('username')) {
+    await db.exec('ALTER TABLE user_event_shows ADD COLUMN username TEXT');
+  }
 
   return db;
 } 

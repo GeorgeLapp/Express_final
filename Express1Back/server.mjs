@@ -85,6 +85,7 @@ initDB().then(database => { db = database; });
 // Получить события с фильтрацией и по пользователю
 app.get('/events', async (req, res) => {
   const { sport, status, tg_id, count, min_coef, max_coef } = req.query;
+  const username = (req.query.username || '').toString().trim();
 
   const requestedCount = parseInt(count, 10) || 1; // сколько событий вернуть
   const ATTEMPT_COST = 1; // сколько попыток стоит один запрос
@@ -110,6 +111,9 @@ app.get('/events', async (req, res) => {
       if (user) {
         user_id = user.id;
         user_attempts = user.attempts;
+        if (username) {
+          await db.run('UPDATE users SET username = ? WHERE tg_id = ?', username, tg_id);
+        }
 
         if (user_attempts < ATTEMPT_COST) {
           return res
@@ -405,9 +409,13 @@ app.get('/events', async (req, res) => {
 // Получить или создать пользователя
 app.get('/user/:tg_id', async (req, res) => {
   const { tg_id } = req.params;
+  const username = (req.query.username || req.body?.username || '').toString().trim();
   let user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
   if (!user) {
-    await db.run('INSERT INTO users (tg_id, attempts) VALUES (?, ?)', tg_id, 10);
+    await db.run('INSERT INTO users (tg_id, username, attempts) VALUES (?, ?, ?)', tg_id, username || null, 10);
+    user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
+  } else if (username) {
+    await db.run('UPDATE users SET username = ? WHERE tg_id = ?', username, tg_id);
     user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
   }
   res.json(user);
@@ -489,15 +497,19 @@ app.get('/userHistory/:tg_id', async (req, res) => {
 
 app.post('/saveHistory', async (req, res) => {
   const { tg_id, events } = req.body || {};
+  const username = (req.body?.username || '').toString().trim();
   if (!tg_id || !Array.isArray(events) || events.length === 0) {
-    return res.status(400).json({ error: 'tg_id и events обязательны' });
+    return res.status(400).json({ error: 'tg_id and events are required' });
   }
 
   const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
   if (!user) return res.status(404).json({ error: 'User not found' });
+  if (username) {
+    await db.run('UPDATE users SET username = ? WHERE tg_id = ?', username, tg_id);
+  }
 
   const insertStmt = await db.prepare(
-    'INSERT INTO user_event_shows (user_id, event_id, shown_outcome) VALUES (?, ?, ?)'
+    'INSERT INTO user_event_shows (user_id, event_id, shown_outcome, username) VALUES (?, ?, ?, ?)'
   );
 
   let saved = 0;
@@ -506,7 +518,8 @@ app.post('/saveHistory', async (req, res) => {
       const eventId = ev?.id ?? ev?.event_id;
       const shownOutcome = ev?.shownOutcome ?? ev?.shown_outcome;
       if (!eventId || !shownOutcome) continue;
-      await insertStmt.run(user.id, String(eventId), String(shownOutcome));
+      const usernameForRow = username || user.username || null;
+      await insertStmt.run(user.id, String(eventId), String(shownOutcome), usernameForRow);
       saved += 1;
     }
   } finally {
@@ -564,14 +577,17 @@ app.get('/getUsers', async (req, res) => {
  *               type: object
  */
 app.post('/addAttempts', async (req, res) => {
-  const { tg_id, count } = req.body;
+  const { tg_id, count, username } = req.body;
   if (!tg_id || !count || isNaN(count) || count <= 0) {
-    return res.status(400).json({ error: 'tg_id и положительный count обязательны' });
+    return res.status(400).json({ error: 'tg_id ? ????????????? count ???????????' });
   }
   const db = await initDB();
   const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
   if (!user) {
-    return res.status(404).json({ error: 'Пользователь не найден' });
+    return res.status(404).json({ error: '???????????? ?? ??????' });
+  }
+  if (username) {
+    await db.run('UPDATE users SET username = ? WHERE tg_id = ?', username.toString().trim(), tg_id);
   }
   await db.run('UPDATE users SET attempts = attempts + ? WHERE tg_id = ?', count, tg_id);
   const updatedUser = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
