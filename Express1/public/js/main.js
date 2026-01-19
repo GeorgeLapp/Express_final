@@ -8,11 +8,20 @@ if (window.Telegram && window.Telegram.WebApp) {
   const tg = Telegram.WebApp;
   const user = tg.initDataUnsafe?.user;
   if (user?.id) {
-    try { localStorage.setItem('tg_id', String(user.id)); } catch (_) {}
+    try {
+      localStorage.setItem('tg_id', String(user.id));
+      if (user.username) {
+        localStorage.setItem('username', String(user.username));
+      }
+    } catch (_) {}
     // Ensure server-side user exists and sync initial attempts
     const backendBaseUrl = getBackendBaseUrl();
     try {
-      fetch(`${backendBaseUrl}/user/${user.id}`)
+      const url = new URL(`${backendBaseUrl}/user/${user.id}`);
+      if (user.username) {
+        url.searchParams.set('username', user.username);
+      }
+      fetch(url.toString())
         .then(res => (res.ok ? res.json() : null))
         .then(data => {
           if (data && typeof data.attempts === 'number') {

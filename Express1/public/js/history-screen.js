@@ -1,4 +1,4 @@
-import { backButtonClickHandler, setupFooterNavigation, getBackendBaseUrl } from './utils.js';
+import { backButtonClickHandler, setupFooterNavigation, getBackendBaseUrl, getTelegramUser } from './utils.js';
 
 function formatRecommendedLabel(outcome) {
   const key = (outcome || '').toString().trim().toLowerCase();
@@ -64,9 +64,21 @@ async function initHistoryScreen() {
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) return;
 
-  const tg_id = localStorage.getItem('tg_id');
+  let tg_id = localStorage.getItem('tg_id');
+  let username = localStorage.getItem('username') || '';
   if (!tg_id) {
-    mainContent.textContent = 'Ошибка: не найден Telegram ID пользователя.';
+    const user = getTelegramUser();
+    if (user?.id) {
+      tg_id = String(user.id);
+      username = user.username ? String(user.username) : username;
+      try {
+        localStorage.setItem('tg_id', tg_id);
+        if (username) localStorage.setItem('username', username);
+      } catch (_) {}
+    }
+  }
+  if (!tg_id) {
+    mainContent.textContent = 'Error: Telegram ID not found.';
     return;
   }
 
@@ -80,21 +92,29 @@ async function initHistoryScreen() {
 
   try {
     const backendBaseUrl = getBackendBaseUrl();
+    if (username) {
+      try {
+        const url = new URL(`${backendBaseUrl}/user/${tg_id}`);
+        url.searchParams.set('username', username);
+        await fetch(url.toString());
+      } catch (_) {}
+    }
+
     const res = await fetch(`${backendBaseUrl}/userHistory/${tg_id}`);
-    if (!res.ok) throw new Error(`Ошибка: ${res.status}`);
+    if (!res.ok) throw new Error(`Error: ${res.status}`);
     const history = await res.json();
 
     if (!history.length) {
-      mainContent.innerHTML = `<p class="no-events">История пуста.</p>`;
+      mainContent.innerHTML = `<p class="no-events">History is empty.</p>`;
       return;
     }
 
-            history.forEach((item) => {
+    history.forEach((item) => {
       const teams =
         item.teams ||
         [item.event?.team1, item.event?.team2].filter(Boolean).join(' / ');
 
-      const shownOutcome = item.shown_outcome?.trim?.()?.toLowerCase?.();
+      const shownOutcome = (item.shown_outcome || '').toString().trim().toLowerCase();
       const recommended =
         item.recommended_label ||
         formatRecommendedLabel(shownOutcome);
@@ -108,8 +128,8 @@ async function initHistoryScreen() {
         else if (shownOutcome === 'outcomex2') coef = item.event?.outcomeX2 ?? 1;
       }
 
-            let result = '';
-      const winningOutcome = item.event?.winning_outcome?.trim?.()?.toLowerCase?.();
+      let result = '';
+      const winningOutcome = (item.event?.winning_outcome || '').toString().trim().toLowerCase();
 
       if (winningOutcome && shownOutcome) {
         if (shownOutcome === 'outcome1x') {
@@ -140,7 +160,7 @@ async function initHistoryScreen() {
     mainContent.appendChild(tableScroll);
   } catch (err) {
     console.error(err);
-    mainContent.innerHTML = `<p class="error">Ошибка при загрузке истории.</p>`;
+    mainContent.innerHTML = `<p class="error">????????? ?????? ??? ???????? ???????.</p>`;
   }
 }
 

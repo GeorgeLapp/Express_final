@@ -21,10 +21,17 @@ try {
   if (tgUser?.id) {
     try {
       localStorage.setItem('tg_id', String(tgUser.id));
+      if (tgUser.username) {
+        localStorage.setItem('username', String(tgUser.username));
+      }
     } catch (_) {}
 
     const backendBaseUrl = getBackendBaseUrl();
-    fetch(`${backendBaseUrl}/user/${tgUser.id}`)
+    const url = new URL(`${backendBaseUrl}/user/${tgUser.id}`);
+    if (tgUser.username) {
+      url.searchParams.set('username', tgUser.username);
+    }
+    fetch(url.toString())
       .then(res =>
         res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))
       )

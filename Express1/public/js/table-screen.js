@@ -8,7 +8,7 @@ import {
   sendFrontendLog,
   decrementAttempt
 } from "./utils.js";
-async function initTableScreen(tg_id) {
+async function initTableScreen(tg_id, username) {
   sendFrontendLog("лог в table заработал");
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) return;
@@ -29,6 +29,9 @@ async function initTableScreen(tg_id) {
 
     if (tg_id) {
       url.searchParams.set('tg_id', tg_id);
+    }
+    if (username) {
+      url.searchParams.set('username', username);
     }
 
     if (activeSports.length) {
@@ -80,7 +83,7 @@ async function initTableScreen(tg_id) {
 
     mainContent.appendChild(tableScroll);
     mainContent.appendChild(createTotalsBlock(product));
-    mainContent.appendChild(createActionButtons({ tg_id, events }));
+    mainContent.appendChild(createActionButtons({ tg_id, username, events }));
   } catch (error) {
     console.error(error);
     mainContent.innerHTML = `<p class="error">Ошибка при загрузке событий: ${error?.message || 'unknown'}</p>`;
@@ -116,9 +119,10 @@ function createTableRow(event) {
   return row;
 }
 
-async function saveHistory(tg_id, events) {
+async function saveHistory(tg_id, username, events) {
   const payload = {
     tg_id,
+    username,
     events: (events || [])
       .map(ev => ({ id: ev?.id, shownOutcome: ev?.shownOutcome }))
       .filter(ev => ev.id && ev.shownOutcome)
@@ -136,7 +140,7 @@ async function saveHistory(tg_id, events) {
   return res.json();
 }
 
-function createActionButtons({ tg_id, events }) {
+function createActionButtons({ tg_id, username, events }) {
   sendFrontendLog("лог в table заработал");
   const buttonsContainer = document.createElement('div');
   buttonsContainer.classList.add('buttons-container');
@@ -158,7 +162,7 @@ function createActionButtons({ tg_id, events }) {
     }
     saveButton.disabled = true;
     try {
-      await saveHistory(tg_id, events);
+      await saveHistory(tg_id, username, events);
     } catch (err) {
       console.error('Save history failed', err);
       alert('Failed to save history.');
@@ -202,16 +206,21 @@ document.addEventListener('DOMContentLoaded', () => {
   setupFooterNavigation();
 
   let tg_id = localStorage.getItem('tg_id');
+  let username = localStorage.getItem('username') || '';
   if (!tg_id) {
     const user = getTelegramUser();
     if (user?.id) {
       tg_id = String(user.id);
-      try { localStorage.setItem('tg_id', tg_id); } catch (_) {}
+      username = user.username ? String(user.username) : username;
+      try {
+        localStorage.setItem('tg_id', tg_id);
+        if (username) localStorage.setItem('username', username);
+      } catch (_) {}
     }
   }
 
   if (tg_id) {
-    initTableScreen(tg_id);
+    initTableScreen(tg_id, username);
   } else {
     const mainContent = document.querySelector('.main-content');
     if (mainContent) {
