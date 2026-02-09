@@ -216,7 +216,9 @@
   }
 
   .number{
-    font-size: 20px;
+    font-size: 22px;
+	color: #FFFFFF;
+	
   }
   
   .bubble {
@@ -253,13 +255,15 @@
   
   .speech {
     position: absolute;
+	text-align: center;
     top: 65px;  
     left: 90px;
     background: #fff;
     padding: 5px 10px;
     border-radius: 50%;
-    font-size: 18px;
+    font-size: 16px;
     white-space: nowrap;
+	
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
   }
 
@@ -291,7 +295,7 @@
   }
 
   .bubble-group button {
-    font-size: 24px;
+    font-size: 29px;
     width: 20px; 
     height: 20px; 
     border-radius: 50%; 
@@ -410,9 +414,9 @@
   }
 
   .bubble-group button{
-    width: 15px;
-    height: 15px;
-    font-size: 18px;
+    width: 12px;
+    height: 12px;
+    font-size: 20px;
   }
 
   .guru2-container{
@@ -485,8 +489,8 @@
   }
 
   .small-circle{
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
   }
 
  .small-circle.choose-range{
@@ -514,9 +518,9 @@
 }
 
 .cell {
-  font-family: 'Inter';
+  font-family: 'Arial';
   font-size: 20px;
-  font-style: italic;
+  font-style: normal;
 }
 
 .cell-70 {
@@ -723,7 +727,7 @@
 }
 
 .footer-icon.active {
-  background-color: #5E5E5E; /* Замените на нужный вам цвет */
+  background-color: #aaaeb3; /* Замените на нужный вам цвет */
 }
 /* instruction-screen*/ 
 .instructions-container {
