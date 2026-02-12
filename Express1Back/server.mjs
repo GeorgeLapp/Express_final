@@ -12,7 +12,7 @@ const swaggerDefinition = {
   info: {
     title: 'Express1Back API',
     version: '1.0.0',
-    description: 'Документация API для Express1Bacw',
+    description: 'Документация API для Express1Back',
   },
   servers: [
     {
