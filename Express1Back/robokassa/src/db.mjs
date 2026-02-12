@@ -14,7 +14,7 @@ import sqlite3 from "sqlite3";
 import { config } from "./config.mjs";
 
 async function readSchema() {
-  const schemaPath = path.resolve("src/schema.sql");
+  const schemaPath = path.resolve("schema.sql");
   return fs.readFile(schemaPath, "utf8");
 }
 
