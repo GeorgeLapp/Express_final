@@ -18,6 +18,58 @@ try {
   fetchFn = (...args) => import('node-fetch').then(mod => mod.default(...args));
 }
 
+const REQUEST_TIMEOUT_MS = Number(process.env.FONBET_REQUEST_TIMEOUT_MS || 10000);
+const REQUEST_RETRIES = Number(process.env.FONBET_REQUEST_RETRIES || 2);
+const RETRYABLE_CODES = new Set([
+  'EAI_AGAIN',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'ECONNREFUSED'
+]);
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getErrorCode(err) {
+  return err?.code || err?.cause?.code || '';
+}
+
+function isRetryableError(err) {
+  if (!err) return false;
+  if (err.name === 'AbortError') return true;
+  const code = getErrorCode(err);
+  return RETRYABLE_CODES.has(code);
+}
+
+async function fetchWithRetry(url, { timeoutMs = REQUEST_TIMEOUT_MS, retries = REQUEST_RETRIES } = {}) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetchFn(url, { signal: controller.signal });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      lastError = err;
+
+      if (attempt >= retries || !isRetryableError(err)) {
+        throw err;
+      }
+
+      const delayMs = Math.min(4000, 400 * (attempt + 1));
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
+}
+
 // Инициализация БД (один shared-инстанс)
 let dbPromise = initDB();
 
@@ -98,13 +150,17 @@ export class FonbetStream extends EventEmitter {
     lang = 'ru',
     scopeMarket = 1600,
     pollInterval = 4000,
-    sportsFilter = ['Футбол', 'Теннис', 'Хоккей']
+    sportsFilter = ['Футбол', 'Теннис', 'Хоккей'],
+    requestTimeoutMs = REQUEST_TIMEOUT_MS,
+    requestRetries = REQUEST_RETRIES
   } = {}) {
     super();
     this.host = host;
     this.lang = lang;
     this.scopeMarket = scopeMarket;
     this.pollInterval = pollInterval;
+    this.requestTimeoutMs = requestTimeoutMs;
+    this.requestRetries = requestRetries;
     this.sportsFilter = new Set(sportsFilter.map(s => s.toLowerCase()));
 
     this._version = 0;
@@ -139,7 +195,10 @@ export class FonbetStream extends EventEmitter {
   async _tick () {
     try {
       const url = `https://${this.host}/events/list?lang=${this.lang}&version=${this._version}&scopeMarket=${this.scopeMarket}`;
-      const res = await fetchFn(url, { timeout: 10000 });
+      const res = await fetchWithRetry(url, {
+        timeoutMs: this.requestTimeoutMs,
+        retries: this.requestRetries
+      });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status} ${res.statusText}`);
       }
@@ -148,7 +207,8 @@ export class FonbetStream extends EventEmitter {
       await this._process(json);
       this._version = json.packetVersion;
     } catch (err) {
-      this.emit('error', err);
+      const code = getErrorCode(err) || err?.name || 'UNKNOWN';
+      this.emit('error', new Error(`[fonbet_polling_error] code=${code}; host=${this.host}; ${err?.message || err}`));
     } finally {
       if (this.pollInterval > 0) {
         this._timer = setTimeout(() => this._tick(), this.pollInterval);
@@ -389,7 +449,7 @@ export class FonbetStream extends EventEmitter {
 }
 
 // Пример запуска (если файл запущен напрямую)
-//if (isRunDirectly) {
+if (isRunDirectly) {
   const stream = new FonbetStream({ pollInterval: 5000 });
 
   console.log('Запуск: фильтруем Футбол (топ-чемпы), Хоккей (КХЛ/ВХЛ/NHL/AHL) и Теннис (топ-игроки)');
@@ -401,4 +461,4 @@ export class FonbetStream extends EventEmitter {
   stream.on('error', console.error);
 
   stream.start();
-//}
+}

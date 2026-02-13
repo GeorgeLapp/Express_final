@@ -9,12 +9,16 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { open } from "sqlite";
 import sqlite3 from "sqlite3";
 import { config } from "./config.mjs";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 async function readSchema() {
-  const schemaPath = path.resolve("schema.sql");
+  const schemaPath = path.resolve(__dirname, "schema.sql");
   return fs.readFile(schemaPath, "utf8");
 }
 

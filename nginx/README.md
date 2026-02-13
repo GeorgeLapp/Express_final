@@ -19,10 +19,10 @@ Added:
    sudo cp nginx/snippets/*.conf /etc/nginx/snippets/
 
 2) Copy site:
-   sudo cp nginx/sites-available/express1.ru.conf /etc/nginx/sites-available/express1.ru.conf
+   sudo cp nginx/sites-available/express1_ru.conf /etc/nginx/sites-available/express1_ru.conf
 
 3) Enable:
-   sudo ln -sf /etc/nginx/sites-available/express1.ru.conf /etc/nginx/sites-enabled/express1.ru.conf
+   sudo ln -sf /etc/nginx/sites-available/express1_ru.conf /etc/nginx/sites-enabled/express1_ru.conf
 
 4) Test and reload:
    sudo nginx -t
