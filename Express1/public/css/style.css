@@ -958,3 +958,57 @@
     font-size: 17px;
   }
 }
+
+/* wallet-screen (minimal purchase layout) */
+.wallet-content {
+  display: flex;
+  align-items: center;
+}
+
+.wallet-panel {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.wallet-balance-label {
+  font-size: 16px;
+  color: #444444;
+}
+
+.wallet-balance-value {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 8px 0 16px;
+}
+
+.wallet-package-label {
+  font-size: 14px;
+  color: #666666;
+}
+
+.wallet-package-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.wallet-buy-button {
+  margin-top: 18px;
+  width: 100%;
+}
+
+.wallet-status {
+  margin-top: 10px;
+  min-height: 20px;
+  font-size: 13px;
+  color: #444444;
+}
+
+.wallet-status-error {
+  color: #b30000;
+}
