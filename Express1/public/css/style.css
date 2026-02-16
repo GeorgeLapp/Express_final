@@ -217,6 +217,7 @@
 
   .number{
     font-size: 20px;
+    color: #FFFFFF;
   }
   
   .bubble {
@@ -258,7 +259,8 @@
     background: #fff;
     padding: 5px 10px;
     border-radius: 50%;
-    font-size: 18px;
+    font-size: 16px;
+    text-align: center;
     white-space: nowrap;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
   }
