@@ -87,6 +87,23 @@ export function backButtonClickHandler(targetUrl) {
       });
     }
   });
+
+  renderCompanyFooterInfo();
+}
+
+function renderCompanyFooterInfo() {
+  const footer = document.querySelector('.footer');
+  if (!footer) return;
+  if (document.querySelector('.footer-company-info')) return;
+
+  const info = document.createElement('div');
+  info.className = 'footer-company-info';
+  info.innerHTML = `
+    <p>ИП Хилков Александр Борисович</p>
+    <p>ИНН: 665803826172</p>
+  `;
+
+  footer.insertAdjacentElement('afterend', info);
 }
 
 // Attempts management

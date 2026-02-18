@@ -727,6 +727,21 @@
 .footer-icon.active {
   background-color: #5E5E5E; /* Замените на нужный вам цвет */
 }
+
+.footer-company-info {
+  width: 100%;
+  padding: 0 12px 10px;
+  margin-top: -14px;
+  text-align: center;
+  color: #5a5a5a;
+  font-size: 11px;
+  line-height: 1.35;
+  font-family: 'Inter', sans-serif;
+}
+
+.footer-company-info p {
+  margin: 2px 0;
+}
 /* instruction-screen*/ 
 .instructions-container {
     display: flex;
