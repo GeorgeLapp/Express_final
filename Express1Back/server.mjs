@@ -3,8 +3,6 @@ import bodyParser from 'body-parser';
 import { initDB } from './db.mjs';
 import { EventModel } from './EventModel.mjs';
 import { UserModel } from './UserModel.mjs';
-import swaggerUi from 'swagger-ui-express';
-import swaggerJSDoc from 'swagger-jsdoc';
 import cors from 'cors';
 
 const swaggerDefinition = {
@@ -26,12 +24,26 @@ const options = {
   apis: ['./server.mjs'],
 };
 
-const swaggerSpec = swaggerJSDoc(options);
-
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+const boolFromEnv = (value) => String(value || '').trim().toLowerCase();
+const swaggerFlag = boolFromEnv(process.env.ENABLE_SWAGGER);
+const enableSwagger = (
+  swaggerFlag === '1' ||
+  swaggerFlag === 'true' ||
+  (swaggerFlag !== '0' && swaggerFlag !== 'false' && process.env.NODE_ENV !== 'production')
+);
+
+if (enableSwagger) {
+  const [{ default: swaggerUi }, { default: swaggerJSDoc }] = await Promise.all([
+    import('swagger-ui-express'),
+    import('swagger-jsdoc')
+  ]);
+
+  const swaggerSpec = swaggerJSDoc(options);
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 let db;
 initDB().then(database => { db = database; });

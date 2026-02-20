@@ -10,6 +10,11 @@ const WEBAPP_URL =
   process.env.BackAddress ||
   process.env.BACK_ADDRESS ||
   '';
+const toPositiveInt = (value, fallback) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+};
 
 const app = express();
 app.disable('x-powered-by');
@@ -46,16 +51,94 @@ app.get('/', (_req, res) => {
 });
 
 if (BOT_TOKEN) {
+  const pollingIntervalMs = toPositiveInt(process.env.TG_POLL_INTERVAL_MS, 1000);
+  const pollingTimeoutSec = toPositiveInt(process.env.TG_POLL_TIMEOUT_SEC, 25);
+  const restartBaseDelayMs = toPositiveInt(process.env.TG_POLL_RESTART_DELAY_MS, 3000);
+  const restartMaxDelayMs = toPositiveInt(process.env.TG_POLL_RESTART_MAX_DELAY_MS, 60000);
+  const transientErrorCodes = new Set([
+    'EAI_AGAIN',
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'ENOTFOUND',
+    'ECONNREFUSED'
+  ]);
+  const transientErrorRegex = /\b(EAI_AGAIN|ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED)\b/i;
+
   const bot = new TelegramBot(BOT_TOKEN, {
     polling: {
-      interval: 1000,
+      interval: pollingIntervalMs,
+      params: {
+        timeout: pollingTimeoutSec
+      },
       autoStart: true
     }
   });
 
+  let restartDelayMs = restartBaseDelayMs;
+  let restartTimer = null;
+  let restartInFlight = false;
+
+  const parsePollingError = (err) => {
+    const message = String(err?.message || err || '');
+    const messageCode = message.match(transientErrorRegex)?.[1]?.toUpperCase();
+    const code = String(
+      messageCode ||
+      err?.cause?.code ||
+      err?.code ||
+      err?.response?.statusCode ||
+      'UNKNOWN'
+    ).toUpperCase();
+    return { code, message };
+  };
+
+  const isTransientPollingError = (code, message) => {
+    if (transientErrorCodes.has(code)) return true;
+    return code === 'EFATAL' && transientErrorRegex.test(message);
+  };
+
+  const runPollingRestart = async () => {
+    if (restartInFlight) return false;
+    restartInFlight = true;
+    try {
+      await bot.stopPolling({ cancel: true }).catch(() => {});
+      await bot.startPolling();
+      restartDelayMs = restartBaseDelayMs;
+      console.warn('[telegram] polling restarted');
+      return true;
+    } catch (restartErr) {
+      restartDelayMs = Math.min(restartDelayMs * 2, restartMaxDelayMs);
+      console.error(
+        `[telegram] polling restart failed; retry in ${restartDelayMs}ms`,
+        restartErr?.message || restartErr
+      );
+      return false;
+    } finally {
+      restartInFlight = false;
+    }
+  };
+
+  const schedulePollingRestart = (reason) => {
+    if (restartTimer || restartInFlight) return;
+    const delay = restartDelayMs;
+    console.warn(`[telegram] polling restart scheduled in ${delay}ms (${reason})`);
+
+    restartTimer = setTimeout(async () => {
+      restartTimer = null;
+      const restarted = await runPollingRestart();
+      if (!restarted) {
+        schedulePollingRestart('retry after failed restart');
+      }
+    }, delay);
+  };
+
   bot.on('polling_error', (err) => {
-    const code = err?.code || err?.response?.statusCode || 'UNKNOWN';
-    console.error(`[telegram][polling_error] code=${code}`, err?.message || err);
+    const { code, message } = parsePollingError(err);
+    if (isTransientPollingError(code, message)) {
+      console.warn(`[telegram][polling_warning] transient code=${code}`, message);
+      schedulePollingRestart(`${code}`);
+      return;
+    }
+    console.error(`[telegram][polling_error] code=${code}`, message);
   });
 
   bot.on('message', (msg) => {
