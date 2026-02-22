@@ -132,18 +132,12 @@ function getGroupStatus(rows) {
   if (hasPending) {
     return { label: 'В ожидании', className: 'pending' };
   }
-
-  const hasLose = rows.some(row => row.result === 'lose');
-  if (hasLose) {
-    return { label: 'Проигран', className: 'lose' };
-  }
-
-  return { label: 'Выиграл', className: 'win' };
+  return { label: 'Завершен', className: 'done' };
 }
 
 function createHistoryRow({ teams, recommended, coef, result }) {
   const row = document.createElement('div');
-  row.classList.add('table-line', 'history-line');
+  row.classList.add('history-line');
 
   let resultDot = '';
   if (result === 'win') {
@@ -157,13 +151,10 @@ function createHistoryRow({ teams, recommended, coef, result }) {
   const coefText = Number.isFinite(coef) ? coef.toFixed(2) : '-';
 
   row.innerHTML = `
-    <div class="cell cell-30">${teams}</div>
-    <div class="divider"></div>
-    <div class="cell cell-30">${recommended}</div>
-    <div class="divider"></div>
-    <div class="cell cell-20">${coefText}</div>
-    <div class="divider"></div>
-    <div class="cell cell-20">${resultDot}</div>
+    <div class="history-cell history-cell-teams">${teams}</div>
+    <div class="history-cell">${recommended}</div>
+    <div class="history-cell">${coefText}</div>
+    <div class="history-cell history-cell-result">${resultDot}</div>
   `;
 
   return row;
@@ -171,16 +162,13 @@ function createHistoryRow({ teams, recommended, coef, result }) {
 
 function createHistoryHeader() {
   const header = document.createElement('div');
-  header.classList.add('table-line', 'history-line', 'table-header');
+  header.classList.add('history-line', 'history-header');
 
   header.innerHTML = `
-    <div class="cell cell-30">Команды</div>
-    <div class="divider"></div>
-    <div class="cell cell-30">Рекомендация</div>
-    <div class="divider"></div>
-    <div class="cell cell-20">Коэфф</div>
-    <div class="divider"></div>
-    <div class="cell cell-20">Результат</div>
+    <div class="history-cell history-cell-teams">Команды</div>
+    <div class="history-cell">Рекомендация</div>
+    <div class="history-cell">Коэфф</div>
+    <div class="history-cell history-cell-result">Результат</div>
   `;
 
   return header;
