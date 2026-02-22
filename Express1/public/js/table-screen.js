@@ -141,6 +141,8 @@ async function saveHistory(tg_id, username, events) {
 }
 
 function createActionButtons({ tg_id, username, events }) {
+  const actionsWrapper = document.createElement('div');
+  actionsWrapper.classList.add('action-buttons-wrapper');
   sendFrontendLog("лог в table заработал");
   const buttonsContainer = document.createElement('div');
   buttonsContainer.classList.add('buttons-container');
@@ -171,8 +173,20 @@ function createActionButtons({ tg_id, username, events }) {
     }
   });
 
+  const fonbetLinkWrap = document.createElement('div');
+  fonbetLinkWrap.classList.add('fonbet-link-wrap');
+
+  const fonbetLink = document.createElement('a');
+  fonbetLink.classList.add('fonbet-link-button');
+  fonbetLink.href = 'https://clicks.af-ru2e2e.com/click?offer_id=819&partner_id=29087&landing_id=3214&utm_medium=affiliate';
+  fonbetLink.target = '_blank';
+  fonbetLink.rel = 'noopener noreferrer';
+  fonbetLink.textContent = 'ФОНБЕТ БОНУС';
+
+  fonbetLinkWrap.appendChild(fonbetLink);
   buttonsContainer.append(betAgainButton, saveButton);
-  return buttonsContainer;
+  actionsWrapper.append(buttonsContainer, fonbetLinkWrap);
+  return actionsWrapper;
 }
 
 function createTotalsBlock(product) {

@@ -195,6 +195,7 @@ export class FonbetStream extends EventEmitter {
   async _tick () {
     try {
       const url = `https://${this.host}/events/list?lang=${this.lang}&version=${this._version}&scopeMarket=${this.scopeMarket}`;
+      //https://line32w.bk6bba-resources.com/events/list?lang=ru&version=0&scopeMarket=1600
       const res = await fetchWithRetry(url, {
         timeoutMs: this.requestTimeoutMs,
         retries: this.requestRetries

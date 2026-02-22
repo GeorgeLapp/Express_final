@@ -503,6 +503,7 @@
  .footer {
   margin-bottom: 10px;
 }
+
 }
 
 /*  table screen */
@@ -640,6 +641,13 @@
   width: 100%;
 }
 
+.action-buttons-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .action-button {
   background-color: #818181;
   color: #FFFFFF;
@@ -650,6 +658,49 @@
   cursor: pointer;
   width: 150px;
   padding: 10px 0;
+}
+
+.fonbet-link-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.guru-btn-wrap .fonbet-link-wrap {
+  margin-top: 22px;
+}
+
+.fonbet-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  background-color: #FFFFFF;
+  border-radius: 8px;
+  color: #000000;
+  text-decoration: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.fonbet-link-button:visited,
+.fonbet-link-button:hover,
+.fonbet-link-button:active {
+  color: #000000;
+}
+
+@media (max-height: 780px) {
+  .fonbet-link-wrap {
+    margin-top: 18px;
+  }
+
+  .fonbet-link-button {
+    font-size: 16px;
+    padding: 5px 12px;
+  }
 }
 
 .main-content {
