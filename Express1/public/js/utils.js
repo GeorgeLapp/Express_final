@@ -6,6 +6,7 @@ export const RESULTS =[
 
 const DEFAULT_BACKEND_BASE = 'https://express1.ru/backend';
 const LOCAL_BACKEND_BASE = 'http://localhost:3001';
+const DEFAULT_WEB_TEST_TG_ID = '517552587';
 
 export const TEAMS = [
   'Шарлеруа',
@@ -153,10 +154,31 @@ export function decrementAttempt() {
 export function getTelegramUser() {
   try {
     const user = window?.Telegram?.WebApp?.initDataUnsafe?.user;
-    return user || null;
+    if (user?.id) {
+      return user;
+    }
   } catch (_) {
-    return null;
+    // ignore and fallback to test user below
   }
+
+  try {
+    const rawFallbackId =
+      (typeof window !== 'undefined' && window?.localStorage?.getItem('fallbackTgId')) ||
+      DEFAULT_WEB_TEST_TG_ID;
+    const fallbackId = Number(rawFallbackId);
+    if (Number.isFinite(fallbackId) && fallbackId > 0) {
+      return {
+        id: fallbackId,
+        username: 'web_tester',
+        first_name: 'Web',
+        last_name: 'Tester'
+      };
+    }
+  } catch (_) {
+    // ignore and return null
+  }
+
+  return null;
 }
 
 // Mapping helpers
