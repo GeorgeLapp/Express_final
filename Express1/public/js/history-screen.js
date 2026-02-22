@@ -86,6 +86,7 @@ function buildHistoryGroups(history) {
   const groups = [];
   const groupsByBatchId = new Map();
   let legacyGroupCounter = 0;
+  const LEGACY_GROUP_WINDOW_MS = 5000;
 
   for (const item of history) {
     const batchId = (item.batch_id || '').toString().trim();
@@ -108,18 +109,28 @@ function buildHistoryGroups(history) {
       continue;
     }
 
-    // Фолбэк для старых записей без batch_id: группируем подряд идущие строки с одинаковым shown_at.
+    // Фолбэк для старых записей без batch_id:
+    // группируем подряд идущие строки с близким временем показа (окно в несколько секунд).
     const shownAt = (item.shown_at || '').toString().trim();
+    const shownAtMs = parseShownAt(shownAt)?.getTime() ?? null;
     const prevGroup = groups[groups.length - 1];
-    if (prevGroup && !prevGroup.batchId && prevGroup.shownAt === shownAt) {
-      prevGroup.items.push(item);
-      continue;
+    if (prevGroup && !prevGroup.batchId) {
+      const isSameShownAt = prevGroup.shownAt === shownAt;
+      const isCloseInTime =
+        shownAtMs != null &&
+        prevGroup.anchorMs != null &&
+        Math.abs(prevGroup.anchorMs - shownAtMs) <= LEGACY_GROUP_WINDOW_MS;
+      if (isSameShownAt || isCloseInTime) {
+        prevGroup.items.push(item);
+        continue;
+      }
     }
 
     groups.push({
       key: `legacy-${shownAt}-${legacyGroupCounter++}`,
       batchId: '',
       shownAt,
+      anchorMs: shownAtMs,
       items: [item]
     });
   }
@@ -241,8 +252,11 @@ function createHistoryGroup(group, index) {
 }
 
 async function initHistoryScreen() {
+  const container = document.querySelector('.container');
   const mainContent = document.querySelector('.main-content');
-  if (!mainContent) return;
+  if (!mainContent || !container) return;
+  container.classList.add('history-layout');
+  mainContent.classList.add('history-main-content');
 
   let tg_id = localStorage.getItem('tg_id');
   let username = localStorage.getItem('username') || '';
@@ -267,7 +281,7 @@ async function initHistoryScreen() {
   title.textContent = 'История экспрессов';
 
   const groupsScroll = document.createElement('div');
-  groupsScroll.classList.add('table-scroll', 'long-scroll', 'history-groups');
+  groupsScroll.classList.add('history-groups');
 
   try {
     const backendBaseUrl = getBackendBaseUrl();

@@ -834,7 +834,37 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-bottom: 6px;
+  padding: 0 2px 14px 0;
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.history-main-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0 !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.container.history-layout {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  justify-content: flex-start;
+}
+
+.container.history-layout .header,
+.container.history-layout .footer {
+  flex-shrink: 0;
+}
+
+.container.history-layout .main-content {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .history-group {
