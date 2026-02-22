@@ -100,7 +100,7 @@ function renderCompanyFooterInfo() {
   const info = document.createElement('div');
   info.className = 'footer-company-info';
   info.innerHTML = `
-    <p>ИП Хилков Александр Борисович</p>
+    <p>Самозанятый Хилков Александр Борисович</p>
     <p>ИНН: 665803826172</p>
   `;
 

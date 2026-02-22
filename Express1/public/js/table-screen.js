@@ -146,6 +146,7 @@ function createActionButtons({ tg_id, username, events }) {
   sendFrontendLog("лог в table заработал");
   const buttonsContainer = document.createElement('div');
   buttonsContainer.classList.add('buttons-container');
+  let isSaveClicked = false;
 
   const betAgainButton = document.createElement('button');
   betAgainButton.classList.add('action-button', 'bet-again-button');
@@ -158,18 +159,22 @@ function createActionButtons({ tg_id, username, events }) {
   saveButton.classList.add('action-button', 'share-button');
   saveButton.textContent = 'SAVE TO MIND';
   saveButton.addEventListener('click', async () => {
+    if (isSaveClicked) return;
+    isSaveClicked = true;
+    saveButton.disabled = true;
+
     if (!tg_id) {
       alert('Telegram ID not found.');
       return;
     }
-    saveButton.disabled = true;
+
     try {
       await saveHistory(tg_id, username, events);
+      saveButton.textContent = 'SAVED';
     } catch (err) {
       console.error('Save history failed', err);
       alert('Failed to save history.');
-    } finally {
-      saveButton.disabled = false;
+      saveButton.textContent = 'SAVE ERROR';
     }
   });
 
