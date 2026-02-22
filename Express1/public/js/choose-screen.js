@@ -96,6 +96,53 @@ increaseButtons.forEach(button => {
   });
 });
 
+function setupBubbleGestureControls() {
+  const bubbles = document.querySelectorAll('.bubble');
+  const swipeThreshold = 24;
+
+  bubbles.forEach((bubble) => {
+    const numberElement = bubble.querySelector('.number');
+    if (!numberElement) return;
+
+    bubble.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      if (event.deltaY < 0) {
+        changeNumber(numberElement, 'increase');
+      } else if (event.deltaY > 0) {
+        changeNumber(numberElement, 'decrease');
+      }
+    }, { passive: false });
+
+    let startX = 0;
+    let startY = 0;
+
+    bubble.addEventListener('touchstart', (event) => {
+      const touch = event.changedTouches?.[0];
+      if (!touch) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+    }, { passive: true });
+
+    bubble.addEventListener('touchend', (event) => {
+      const touch = event.changedTouches?.[0];
+      if (!touch) return;
+
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (Math.abs(dx) < swipeThreshold && Math.abs(dy) < swipeThreshold) {
+        return;
+      }
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        changeNumber(numberElement, dx > 0 ? 'increase' : 'decrease');
+        return;
+      }
+
+      changeNumber(numberElement, dy < 0 ? 'increase' : 'decrease');
+    }, { passive: true });
+  });
+}
+
 // ----- Логика выбора видов спорта -----
 
 function sportButtonClickHandler() {
@@ -173,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
   resetSportSelectionAndGuruBtn();
 
   sportButtonClickHandler();
+  setupBubbleGestureControls();
 
   setupButtonClickHandler('ask-guru-btn', 'table-screen.html', () => {
     saveBubbleValuesToLocalStorage();
