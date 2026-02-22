@@ -58,6 +58,7 @@ export async function initDB() {
       event_id TEXT,
       shown_outcome TEXT,
       username TEXT,
+      batch_id TEXT,
       shown_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(user_id) REFERENCES users(id),
       FOREIGN KEY(event_id) REFERENCES events(id)
@@ -68,6 +69,9 @@ export async function initDB() {
   const userEventShowColumnNames = new Set(userEventShowColumns.map(c => c.name));
   if (!userEventShowColumnNames.has('username')) {
     await db.exec('ALTER TABLE user_event_shows ADD COLUMN username TEXT');
+  }
+  if (!userEventShowColumnNames.has('batch_id')) {
+    await db.exec('ALTER TABLE user_event_shows ADD COLUMN batch_id TEXT');
   }
 
   return db;

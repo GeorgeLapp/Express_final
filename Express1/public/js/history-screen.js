@@ -10,7 +10,136 @@ function formatRecommendedLabel(outcome) {
   return '';
 }
 
+function resolveRecommendedCoef(item, shownOutcome) {
+  if (item.recommended_coef != null) {
+    const existing = Number(item.recommended_coef);
+    return Number.isFinite(existing) ? existing : null;
+  }
 
+  if (shownOutcome === 'outcome1') return Number(item.event?.outcome1);
+  if (shownOutcome === 'outcomex') return Number(item.event?.outcomeX);
+  if (shownOutcome === 'outcome2') return Number(item.event?.outcome2);
+  if (shownOutcome === 'outcome1x') return Number(item.event?.outcome1X);
+  if (shownOutcome === 'outcomex2') return Number(item.event?.outcomeX2);
+  return null;
+}
+
+function resolveResult(shownOutcome, winningOutcome) {
+  if (!shownOutcome || !winningOutcome) return 'pending';
+
+  if (shownOutcome === 'outcome1x') {
+    return (winningOutcome === 'outcome1' || winningOutcome === 'outcomex') ? 'win' : 'lose';
+  }
+  if (shownOutcome === 'outcomex2') {
+    return (winningOutcome === 'outcome2' || winningOutcome === 'outcomex') ? 'win' : 'lose';
+  }
+  return winningOutcome === shownOutcome ? 'win' : 'lose';
+}
+
+function mapHistoryItem(item) {
+  const teams =
+    item.teams ||
+    [item.event?.team1, item.event?.team2].filter(Boolean).join(' / ');
+
+  const shownOutcome = (item.shown_outcome || '').toString().trim().toLowerCase();
+  const recommended =
+    item.recommended_label ||
+    formatRecommendedLabel(shownOutcome);
+
+  const coefRaw = resolveRecommendedCoef(item, shownOutcome);
+  const coef = Number.isFinite(coefRaw) ? coefRaw : null;
+
+  const winningOutcome = (item.event?.winning_outcome || '').toString().trim().toLowerCase();
+  const result = resolveResult(shownOutcome, winningOutcome);
+
+  return {
+    teams: teams || '-',
+    recommended: recommended || '-',
+    coef,
+    result
+  };
+}
+
+function parseShownAt(shownAt) {
+  const raw = (shownAt || '').toString().trim();
+  if (!raw) return null;
+  const isoBase = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const isoUtc = isoBase.endsWith('Z') ? isoBase : `${isoBase}Z`;
+  const date = new Date(isoUtc);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function formatShownAtLabel(shownAt) {
+  const date = parseShownAt(shownAt);
+  if (!date) return 'Время неизвестно';
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function buildHistoryGroups(history) {
+  const groups = [];
+  const groupsByBatchId = new Map();
+  let legacyGroupCounter = 0;
+
+  for (const item of history) {
+    const batchId = (item.batch_id || '').toString().trim();
+    if (batchId) {
+      let group = groupsByBatchId.get(batchId);
+      if (!group) {
+        group = {
+          key: `batch-${batchId}`,
+          batchId,
+          shownAt: item.shown_at || '',
+          items: []
+        };
+        groupsByBatchId.set(batchId, group);
+        groups.push(group);
+      }
+      if (!group.shownAt && item.shown_at) {
+        group.shownAt = item.shown_at;
+      }
+      group.items.push(item);
+      continue;
+    }
+
+    // Фолбэк для старых записей без batch_id: группируем подряд идущие строки с одинаковым shown_at.
+    const shownAt = (item.shown_at || '').toString().trim();
+    const prevGroup = groups[groups.length - 1];
+    if (prevGroup && !prevGroup.batchId && prevGroup.shownAt === shownAt) {
+      prevGroup.items.push(item);
+      continue;
+    }
+
+    groups.push({
+      key: `legacy-${shownAt}-${legacyGroupCounter++}`,
+      batchId: '',
+      shownAt,
+      items: [item]
+    });
+  }
+
+  return groups;
+}
+
+function getGroupStatus(rows) {
+  const hasPending = rows.some(row => row.result === 'pending');
+  if (hasPending) {
+    return { label: 'В ожидании', className: 'pending' };
+  }
+
+  const hasLose = rows.some(row => row.result === 'lose');
+  if (hasLose) {
+    return { label: 'Проигран', className: 'lose' };
+  }
+
+  return { label: 'Выиграл', className: 'win' };
+}
 
 function createHistoryRow({ teams, recommended, coef, result }) {
   const row = document.createElement('div');
@@ -18,20 +147,19 @@ function createHistoryRow({ teams, recommended, coef, result }) {
 
   let resultDot = '';
   if (result === 'win') {
-    resultDot = `<span class="result-dot green"></span>`;
+    resultDot = '<span class="result-dot green" title="Выигрыш"></span>';
   } else if (result === 'lose') {
-    resultDot = `<span class="result-dot red"></span>`;
-  } else if (result === 'pending') {
-    resultDot = `<span class="result-dot gray" title="Ожидание результата">⏳</span>`;
+    resultDot = '<span class="result-dot red" title="Проигрыш"></span>';
+  } else {
+    resultDot = '<span class="result-dot gray" title="Ожидание результата"></span>';
   }
 
-  const coefNum = Number(coef);
-  const coefText = Number.isFinite(coefNum) ? coefNum.toFixed(2) : '-';
+  const coefText = Number.isFinite(coef) ? coef.toFixed(2) : '-';
 
   row.innerHTML = `
-    <div class="cell cell-30">${teams || '-'}</div>
+    <div class="cell cell-30">${teams}</div>
     <div class="divider"></div>
-    <div class="cell cell-30">${recommended || '-'}</div>
+    <div class="cell cell-30">${recommended}</div>
     <div class="divider"></div>
     <div class="cell cell-20">${coefText}</div>
     <div class="divider"></div>
@@ -58,7 +186,51 @@ function createHistoryHeader() {
   return header;
 }
 
+function createHistoryGroup(group, index) {
+  const rows = group.items.map(mapHistoryItem);
 
+  let combinedCoef = 1;
+  let hasCombinedCoef = false;
+  rows.forEach(row => {
+    if (Number.isFinite(row.coef) && row.coef > 0) {
+      hasCombinedCoef = true;
+      combinedCoef *= row.coef;
+    }
+  });
+
+  const groupStatus = getGroupStatus(rows);
+  const shownAtText = formatShownAtLabel(group.shownAt);
+  const combinedCoefText = hasCombinedCoef ? combinedCoef.toFixed(2) : '-';
+
+  const details = document.createElement('details');
+  details.classList.add('history-group');
+  if (index === 0) {
+    details.open = true;
+  }
+
+  const summary = document.createElement('summary');
+  summary.classList.add('history-group-summary');
+  summary.innerHTML = `
+    <span class="history-group-arrow">▸</span>
+    <div class="history-group-info">
+      <div class="history-group-title">Экспресс #${index + 1}</div>
+      <div class="history-group-meta">${shownAtText} • ${rows.length} событий • Общий коэфф: ${combinedCoefText}</div>
+    </div>
+    <span class="history-group-status ${groupStatus.className}">${groupStatus.label}</span>
+  `;
+
+  const content = document.createElement('div');
+  content.classList.add('history-group-content');
+
+  const table = document.createElement('div');
+  table.classList.add('history-group-rows');
+  table.appendChild(createHistoryHeader());
+  rows.forEach(row => table.appendChild(createHistoryRow(row)));
+
+  content.appendChild(table);
+  details.append(summary, content);
+  return details;
+}
 
 async function initHistoryScreen() {
   const mainContent = document.querySelector('.main-content');
@@ -78,17 +250,16 @@ async function initHistoryScreen() {
     }
   }
   if (!tg_id) {
-    mainContent.textContent = 'Error: Telegram ID not found.';
+    mainContent.textContent = 'Ошибка: Telegram ID не найден.';
     return;
   }
 
   const title = document.createElement('h2');
   title.classList.add('history-title');
-  title.textContent = 'History of actions';
+  title.textContent = 'История экспрессов';
 
-  const tableScroll = document.createElement('div');
-  tableScroll.classList.add('table-scroll', 'long-scroll');
-  tableScroll.appendChild(createHistoryHeader());
+  const groupsScroll = document.createElement('div');
+  groupsScroll.classList.add('table-scroll', 'long-scroll', 'history-groups');
 
   try {
     const backendBaseUrl = getBackendBaseUrl();
@@ -105,62 +276,19 @@ async function initHistoryScreen() {
     const history = await res.json();
 
     if (!history.length) {
-      mainContent.innerHTML = `<p class="no-events">History is empty.</p>`;
+      mainContent.innerHTML = '<p class="no-events">История пуста.</p>';
       return;
     }
 
-    history.forEach((item) => {
-      const teams =
-        item.teams ||
-        [item.event?.team1, item.event?.team2].filter(Boolean).join(' / ');
-
-      const shownOutcome = (item.shown_outcome || '').toString().trim().toLowerCase();
-      const recommended =
-        item.recommended_label ||
-        formatRecommendedLabel(shownOutcome);
-
-      let coef = item.recommended_coef;
-      if (coef == null) {
-        if (shownOutcome === 'outcome1') coef = item.event?.outcome1 ?? 1;
-        else if (shownOutcome === 'outcomex') coef = item.event?.outcomeX ?? 1;
-        else if (shownOutcome === 'outcome2') coef = item.event?.outcome2 ?? 1;
-        else if (shownOutcome === 'outcome1x') coef = item.event?.outcome1X ?? 1;
-        else if (shownOutcome === 'outcomex2') coef = item.event?.outcomeX2 ?? 1;
-      }
-
-      let result = '';
-      const winningOutcome = (item.event?.winning_outcome || '').toString().trim().toLowerCase();
-
-      if (winningOutcome && shownOutcome) {
-        if (shownOutcome === 'outcome1x') {
-          result = (winningOutcome === 'outcome1' || winningOutcome === 'outcomex')
-            ? 'win'
-            : 'lose';
-        } else if (shownOutcome === 'outcomex2') {
-          result = (winningOutcome === 'outcome2' || winningOutcome === 'outcomex')
-            ? 'win'
-            : 'lose';
-        } else {
-          result = winningOutcome === shownOutcome ? 'win' : 'lose';
-        }
-      } else {
-        result = 'pending';
-      }
-
-      const row = createHistoryRow({
-        teams,
-        recommended,
-        coef: (Number(coef) || 1),
-        result
-      });
-
-      tableScroll.appendChild(row);
+    const groups = buildHistoryGroups(history);
+    groups.forEach((group, index) => {
+      groupsScroll.appendChild(createHistoryGroup(group, index));
     });
-    mainContent.appendChild(title);
-    mainContent.appendChild(tableScroll);
+
+    mainContent.append(title, groupsScroll);
   } catch (err) {
     console.error(err);
-    mainContent.innerHTML = `<p class="error">????????? ?????? ??? ???????? ???????.</p>`;
+    mainContent.innerHTML = '<p class="error">Ошибка при загрузке истории.</p>';
   }
 }
 

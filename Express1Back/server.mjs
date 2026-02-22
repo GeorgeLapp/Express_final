@@ -4,6 +4,7 @@ import { initDB } from './db.mjs';
 import { EventModel } from './EventModel.mjs';
 import { UserModel } from './UserModel.mjs';
 import cors from 'cors';
+import { randomUUID } from 'crypto';
 
 const swaggerDefinition = {
   openapi: '3.0.0',
@@ -510,6 +511,8 @@ app.get('/userHistory/:tg_id', async (req, res) => {
 app.post('/saveHistory', async (req, res) => {
   const { tg_id, events } = req.body || {};
   const username = (req.body?.username || '').toString().trim();
+  const batchIdFromBody = (req.body?.batch_id || '').toString().trim();
+  const batchId = batchIdFromBody || randomUUID();
   if (!tg_id || !Array.isArray(events) || events.length === 0) {
     return res.status(400).json({ error: 'tg_id and events are required' });
   }
@@ -521,7 +524,7 @@ app.post('/saveHistory', async (req, res) => {
   }
 
   const insertStmt = await db.prepare(
-    'INSERT INTO user_event_shows (user_id, event_id, shown_outcome, username) VALUES (?, ?, ?, ?)'
+    'INSERT INTO user_event_shows (user_id, event_id, shown_outcome, username, batch_id) VALUES (?, ?, ?, ?, ?)'
   );
 
   let saved = 0;
@@ -531,14 +534,14 @@ app.post('/saveHistory', async (req, res) => {
       const shownOutcome = ev?.shownOutcome ?? ev?.shown_outcome;
       if (!eventId || !shownOutcome) continue;
       const usernameForRow = username || user.username || null;
-      await insertStmt.run(user.id, String(eventId), String(shownOutcome), usernameForRow);
+      await insertStmt.run(user.id, String(eventId), String(shownOutcome), usernameForRow, batchId);
       saved += 1;
     }
   } finally {
     await insertStmt.finalize();
   }
 
-  return res.json({ ok: true, saved });
+  return res.json({ ok: true, saved, batch_id: batchId });
 });
 
 /**
