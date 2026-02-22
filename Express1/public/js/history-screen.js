@@ -135,43 +135,68 @@ function getGroupStatus(rows) {
   return { label: 'Завершен', className: 'done' };
 }
 
-function createHistoryRow({ teams, recommended, coef, result }) {
-  const row = document.createElement('div');
-  row.classList.add('history-line');
+function createResultDot(result) {
+  const dot = document.createElement('span');
+  dot.classList.add('result-dot');
 
-  let resultDot = '';
   if (result === 'win') {
-    resultDot = '<span class="result-dot green" title="Выигрыш"></span>';
-  } else if (result === 'lose') {
-    resultDot = '<span class="result-dot red" title="Проигрыш"></span>';
-  } else {
-    resultDot = '<span class="result-dot gray" title="Ожидание результата"></span>';
+    dot.classList.add('green');
+    dot.title = 'Выигрыш';
+    return dot;
   }
 
-  const coefText = Number.isFinite(coef) ? coef.toFixed(2) : '-';
+  if (result === 'lose') {
+    dot.classList.add('red');
+    dot.title = 'Проигрыш';
+    return dot;
+  }
 
-  row.innerHTML = `
-    <div class="history-cell history-cell-teams">${teams}</div>
-    <div class="history-cell">${recommended}</div>
-    <div class="history-cell">${coefText}</div>
-    <div class="history-cell history-cell-result">${resultDot}</div>
-  `;
-
-  return row;
+  dot.classList.add('gray');
+  dot.title = 'Ожидание результата';
+  return dot;
 }
 
-function createHistoryHeader() {
-  const header = document.createElement('div');
-  header.classList.add('history-line', 'history-header');
+function createHistoryTable(rows) {
+  const wrap = document.createElement('div');
+  wrap.classList.add('history-table-wrap');
 
-  header.innerHTML = `
-    <div class="history-cell history-cell-teams">Команды</div>
-    <div class="history-cell">Рекомендация</div>
-    <div class="history-cell">Коэфф</div>
-    <div class="history-cell history-cell-result">Результат</div>
-  `;
+  const table = document.createElement('table');
+  table.classList.add('history-table');
 
-  return header;
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['Команды', 'Рекомендация', 'Коэфф', 'Результат'].forEach((title) => {
+    const th = document.createElement('th');
+    th.textContent = title;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  rows.forEach(({ teams, recommended, coef, result }) => {
+    const tr = document.createElement('tr');
+
+    const teamsTd = document.createElement('td');
+    teamsTd.textContent = teams;
+
+    const recommendationTd = document.createElement('td');
+    recommendationTd.textContent = recommended;
+
+    const coefTd = document.createElement('td');
+    coefTd.textContent = Number.isFinite(coef) ? coef.toFixed(2) : '-';
+
+    const resultTd = document.createElement('td');
+    resultTd.classList.add('history-result-cell');
+    resultTd.appendChild(createResultDot(result));
+
+    tr.append(teamsTd, recommendationTd, coefTd, resultTd);
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
 }
 
 function createHistoryGroup(group, index) {
@@ -210,12 +235,7 @@ function createHistoryGroup(group, index) {
   const content = document.createElement('div');
   content.classList.add('history-group-content');
 
-  const table = document.createElement('div');
-  table.classList.add('history-group-rows');
-  table.appendChild(createHistoryHeader());
-  rows.forEach(row => table.appendChild(createHistoryRow(row)));
-
-  content.appendChild(table);
+  content.appendChild(createHistoryTable(rows));
   details.append(summary, content);
   return details;
 }
