@@ -5,8 +5,7 @@ import {
   mapSportToImage,
   getBackendBaseUrl,
   getTelegramUser,
-  sendFrontendLog,
-  decrementAttempt
+  sendFrontendLog
 } from "./utils.js";
 async function initTableScreen(tg_id, username) {
   sendFrontendLog("лог в table заработал");
@@ -64,10 +63,6 @@ async function initTableScreen(tg_id, username) {
     if (!events.length) {
       mainContent.innerHTML = `<p class="no-events">Нет подходящих событий.</p>`;
       return;
-    }
-
-    if (tg_id) {
-      decrementAttempt();
     }
 
     let product = 1;
@@ -128,7 +123,9 @@ async function saveHistory(tg_id, username, events) {
       .filter(ev => ev.id && ev.shownOutcome)
   };
 
-  if (!payload.tg_id || !payload.events.length) return { ok: false, saved: 0 };
+  if (!payload.tg_id || !payload.events.length) {
+    throw new Error('Nothing to save');
+  }
 
   const backendBaseUrl = getBackendBaseUrl();
   const res = await fetch(`${backendBaseUrl}/saveHistory`, {
@@ -136,8 +133,11 @@ async function saveHistory(tg_id, username, events) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error || `HTTP ${res.status}`);
+  }
+  return data;
 }
 
 function createActionButtons({ tg_id, username, events }) {
@@ -165,16 +165,25 @@ function createActionButtons({ tg_id, username, events }) {
 
     if (!tg_id) {
       alert('Telegram ID not found.');
+      saveButton.disabled = false;
+      isSaveClicked = false;
       return;
     }
 
     try {
-      await saveHistory(tg_id, username, events);
+      const result = await saveHistory(tg_id, username, events);
+      if (typeof result?.attempts_left === 'number') {
+        try {
+          localStorage.setItem('attemptsLeft', String(result.attempts_left));
+        } catch (_) {}
+      }
       saveButton.textContent = 'SAVED';
     } catch (err) {
       console.error('Save history failed', err);
-      alert('Failed to save history.');
-      saveButton.textContent = 'SAVE ERROR';
+      alert(err?.message || 'Failed to save history.');
+      saveButton.textContent = 'SAVE TO MIND';
+      saveButton.disabled = false;
+      isSaveClicked = false;
     }
   });
 
@@ -224,18 +233,20 @@ backButtonClickHandler('choose-page.html');
 document.addEventListener('DOMContentLoaded', () => {
   setupFooterNavigation();
 
-  let tg_id = localStorage.getItem('tg_id');
-  let username = localStorage.getItem('username') || '';
-  if (!tg_id) {
-    const user = getTelegramUser();
-    if (user?.id) {
-      tg_id = String(user.id);
-      username = user.username ? String(user.username) : username;
-      try {
-        localStorage.setItem('tg_id', tg_id);
-        if (username) localStorage.setItem('username', username);
-      } catch (_) {}
-    }
+  const user = getTelegramUser();
+  let tg_id = '';
+  let username = '';
+
+  if (user?.id) {
+    tg_id = String(user.id);
+    username = user.username ? String(user.username) : '';
+    try {
+      localStorage.setItem('tg_id', tg_id);
+      if (username) localStorage.setItem('username', username);
+    } catch (_) {}
+  } else {
+    tg_id = localStorage.getItem('tg_id') || '';
+    username = localStorage.getItem('username') || '';
   }
 
   if (tg_id) {

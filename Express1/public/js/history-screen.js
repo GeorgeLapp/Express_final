@@ -258,18 +258,19 @@ async function initHistoryScreen() {
   container.classList.add('history-layout');
   mainContent.classList.add('history-main-content');
 
-  let tg_id = localStorage.getItem('tg_id');
-  let username = localStorage.getItem('username') || '';
-  if (!tg_id) {
-    const user = getTelegramUser();
-    if (user?.id) {
-      tg_id = String(user.id);
-      username = user.username ? String(user.username) : username;
-      try {
-        localStorage.setItem('tg_id', tg_id);
-        if (username) localStorage.setItem('username', username);
-      } catch (_) {}
-    }
+  const user = getTelegramUser();
+  let tg_id = '';
+  let username = '';
+  if (user?.id) {
+    tg_id = String(user.id);
+    username = user.username ? String(user.username) : '';
+    try {
+      localStorage.setItem('tg_id', tg_id);
+      if (username) localStorage.setItem('username', username);
+    } catch (_) {}
+  } else {
+    tg_id = localStorage.getItem('tg_id') || '';
+    username = localStorage.getItem('username') || '';
   }
   if (!tg_id) {
     mainContent.textContent = 'Ошибка: Telegram ID не найден.';

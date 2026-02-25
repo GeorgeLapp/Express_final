@@ -47,7 +47,53 @@ if (enableSwagger) {
 }
 
 let db;
-initDB().then(database => { db = database; });
+const dbReadyPromise = initDB().then(database => {
+  db = database;
+  return database;
+});
+
+app.use(async (_req, _res, next) => {
+  try {
+    if (!db) {
+      db = await dbReadyPromise;
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+function normalizeTgId(raw) {
+  const tgId = (raw ?? '').toString().trim();
+  return tgId || null;
+}
+
+async function getOrCreateUserByTgId(rawTgId, username = '') {
+  const tgId = normalizeTgId(rawTgId);
+  const cleanUsername = (username || '').toString().trim();
+  if (!tgId) {
+    return null;
+  }
+
+  let user = await db.get('SELECT * FROM users WHERE tg_id = ?', tgId);
+  if (!user) {
+    await db.run(
+      'INSERT OR IGNORE INTO users (tg_id, username, attempts) VALUES (?, ?, ?)',
+      tgId,
+      cleanUsername || null,
+      10
+    );
+    user = await db.get('SELECT * FROM users WHERE tg_id = ?', tgId);
+    return user;
+  }
+
+  if (cleanUsername && cleanUsername !== (user.username || '')) {
+    await db.run('UPDATE users SET username = ? WHERE tg_id = ?', cleanUsername, tgId);
+    user = await db.get('SELECT * FROM users WHERE tg_id = ?', tgId);
+  }
+
+  return user;
+}
 
 /**
  * @swagger
@@ -97,7 +143,8 @@ initDB().then(database => { db = database; });
  */
 // Получить события с фильтрацией и по пользователю
 app.get('/events', async (req, res) => {
-  const { sport, status, tg_id, count, min_coef, max_coef } = req.query;
+  const { sport, status, count, min_coef, max_coef } = req.query;
+  const tg_id = normalizeTgId(req.query.tg_id);
   const username = (req.query.username || '').toString().trim();
 
   const requestedCount = parseInt(count, 10) || 1; // сколько событий вернуть
@@ -105,7 +152,6 @@ app.get('/events', async (req, res) => {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const maxStartTimeSeconds = nowSeconds + 24 * 60 * 60;
 
-  let user_id = null;
   let user_attempts = null;
   // нормализуем диапазон коэффициентов
   let min = Number.isFinite(parseFloat(min_coef)) ? parseFloat(min_coef) : null;
@@ -120,21 +166,16 @@ app.get('/events', async (req, res) => {
   try {
     // --- работа с пользователем и попытками ---
     if (tg_id) {
-      const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-      if (user) {
-        user_id = user.id;
-        user_attempts = user.attempts;
-        if (username) {
-          await db.run('UPDATE users SET username = ? WHERE tg_id = ?', username, tg_id);
-        }
-
-        if (user_attempts < ATTEMPT_COST) {
+      const user = await getOrCreateUserByTgId(tg_id, username);
+      if (!user) {
+        return res.status(400).json({ error: 'Invalid tg_id' });
+      }
+      user_attempts = Number(user.attempts) || 0;
+      if (user_attempts < ATTEMPT_COST) {
           return res
             .status(403)
             .json({ error: `У вас недостаточно попыток! Осталось: ${user_attempts}` });
         }
-
-      }
     }
 
     // --- формирование SQL-запроса ---
@@ -383,15 +424,7 @@ app.get('/events', async (req, res) => {
       return res.json([]);
     }
 
-    // -------- 4. Списание попытки (историю пишем только по Save) --------
-    if (user_id) {
-      await db.run(
-        'UPDATE users SET attempts = attempts - ? WHERE id = ?',
-        ATTEMPT_COST,
-        user_id
-      );
-    }
-
+    // Attempts are charged only after successful save in /saveHistory.
     return res.json(filtered);
   } catch (err) {
     console.error('Error in /events:', err);
@@ -421,16 +454,10 @@ app.get('/events', async (req, res) => {
  */
 // Получить или создать пользователя
 app.get('/user/:tg_id', async (req, res) => {
-  const { tg_id } = req.params;
+  const tg_id = normalizeTgId(req.params.tg_id);
   const username = (req.query.username || req.body?.username || '').toString().trim();
-  let user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-  if (!user) {
-    await db.run('INSERT INTO users (tg_id, username, attempts) VALUES (?, ?, ?)', tg_id, username || null, 10);
-    user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-  } else if (username) {
-    await db.run('UPDATE users SET username = ? WHERE tg_id = ?', username, tg_id);
-    user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-  }
+  const user = await getOrCreateUserByTgId(tg_id, username);
+  if (!user) return res.status(400).json({ error: 'Invalid tg_id' });
   res.json(user);
 });
 
@@ -457,9 +484,10 @@ app.get('/user/:tg_id', async (req, res) => {
  *                 type: object
  */
 app.get('/userHistory/:tg_id', async (req, res) => {
-  const { tg_id } = req.params;
+  const tg_id = normalizeTgId(req.params.tg_id);
+  if (!tg_id) return res.status(400).json({ error: 'Invalid tg_id' });
   const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user) return res.json([]);
   // Получаем все user_event_shows для user_id
   const shows = await db.all(
     'SELECT * FROM user_event_shows WHERE user_id = ? ORDER BY datetime(shown_at) DESC, id DESC',
@@ -509,39 +537,90 @@ app.get('/userHistory/:tg_id', async (req, res) => {
 });
 
 app.post('/saveHistory', async (req, res) => {
-  const { tg_id, events } = req.body || {};
+  const tg_id = normalizeTgId(req.body?.tg_id);
+  const events = Array.isArray(req.body?.events) ? req.body.events : [];
   const username = (req.body?.username || '').toString().trim();
   const batchIdFromBody = (req.body?.batch_id || '').toString().trim();
   const batchId = batchIdFromBody || randomUUID();
-  if (!tg_id || !Array.isArray(events) || events.length === 0) {
+  const ATTEMPT_COST = 1;
+
+  if (!tg_id || !events.length) {
     return res.status(400).json({ error: 'tg_id and events are required' });
   }
 
-  const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  if (username) {
-    await db.run('UPDATE users SET username = ? WHERE tg_id = ?', username, tg_id);
+  const normalizedEvents = events
+    .map(ev => ({
+      eventId: ev?.id ?? ev?.event_id,
+      shownOutcome: ev?.shownOutcome ?? ev?.shown_outcome
+    }))
+    .filter(ev => ev.eventId && ev.shownOutcome);
+
+  if (!normalizedEvents.length) {
+    return res.status(400).json({ error: 'No valid events to save' });
   }
 
-  const insertStmt = await db.prepare(
-    'INSERT INTO user_event_shows (user_id, event_id, shown_outcome, username, batch_id) VALUES (?, ?, ?, ?, ?)'
-  );
+  const user = await getOrCreateUserByTgId(tg_id, username);
+  if (!user) {
+    return res.status(400).json({ error: 'Invalid tg_id' });
+  }
 
+  let insertStmt;
   let saved = 0;
+
   try {
-    for (const ev of events) {
-      const eventId = ev?.id ?? ev?.event_id;
-      const shownOutcome = ev?.shownOutcome ?? ev?.shown_outcome;
-      if (!eventId || !shownOutcome) continue;
-      const usernameForRow = username || user.username || null;
-      await insertStmt.run(user.id, String(eventId), String(shownOutcome), usernameForRow, batchId);
+    await db.run('BEGIN IMMEDIATE TRANSACTION');
+
+    const freshUser = await db.get('SELECT id, attempts, username FROM users WHERE id = ?', user.id);
+    const currentAttempts = Number(freshUser?.attempts) || 0;
+    if (currentAttempts < ATTEMPT_COST) {
+      await db.run('ROLLBACK');
+      return res.status(403).json({ error: `Недостаточно попыток. Осталось: ${currentAttempts}` });
+    }
+
+    const usernameForRow = username || freshUser?.username || null;
+    insertStmt = await db.prepare(
+      'INSERT INTO user_event_shows (user_id, event_id, shown_outcome, username, batch_id) VALUES (?, ?, ?, ?, ?)'
+    );
+
+    for (const ev of normalizedEvents) {
+      await insertStmt.run(
+        freshUser.id,
+        String(ev.eventId),
+        String(ev.shownOutcome),
+        usernameForRow,
+        batchId
+      );
       saved += 1;
     }
-  } finally {
-    await insertStmt.finalize();
-  }
 
-  return res.json({ ok: true, saved, batch_id: batchId });
+    if (saved < 1) {
+      await db.run('ROLLBACK');
+      return res.status(400).json({ error: 'Nothing was saved' });
+    }
+
+    await db.run('UPDATE users SET attempts = attempts - ? WHERE id = ?', ATTEMPT_COST, freshUser.id);
+    await db.run('COMMIT');
+
+    const updatedUser = await db.get('SELECT attempts FROM users WHERE id = ?', freshUser.id);
+    return res.json({
+      ok: true,
+      saved,
+      batch_id: batchId,
+      attempts_left: Number(updatedUser?.attempts) || 0
+    });
+  } catch (err) {
+    try {
+      await db.run('ROLLBACK');
+    } catch (_) {
+      // ignore rollback failures
+    }
+    console.error('Error in /saveHistory:', err);
+    return res.status(500).json({ error: 'Failed to save history' });
+  } finally {
+    if (insertStmt) {
+      await insertStmt.finalize();
+    }
+  }
 });
 
 /**
@@ -592,11 +671,11 @@ app.get('/getUsers', async (req, res) => {
  *               type: object
  */
 app.post('/addAttempts', async (req, res) => {
-  const { tg_id, count, username } = req.body;
+  const tg_id = normalizeTgId(req.body?.tg_id);
+  const { count, username } = req.body || {};
   if (!tg_id || !count || isNaN(count) || count <= 0) {
     return res.status(400).json({ error: 'tg_id ? ????????????? count ???????????' });
   }
-  const db = await initDB();
   const user = await db.get('SELECT * FROM users WHERE tg_id = ?', tg_id);
   if (!user) {
     return res.status(404).json({ error: '???????????? ?? ??????' });

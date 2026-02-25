@@ -6,7 +6,6 @@ export const RESULTS =[
 
 const DEFAULT_BACKEND_BASE = 'https://express1.ru/backend';
 const LOCAL_BACKEND_BASE = 'http://localhost:3001';
-const DEFAULT_WEB_TEST_TG_ID = '517552587';
 
 export const TEAMS = [
   'Шарлеруа',
@@ -163,8 +162,10 @@ export function getTelegramUser() {
 
   try {
     const rawFallbackId =
-      (typeof window !== 'undefined' && window?.localStorage?.getItem('fallbackTgId')) ||
-      DEFAULT_WEB_TEST_TG_ID;
+      typeof window !== 'undefined' && window?.localStorage?.getItem('fallbackTgId');
+    if (rawFallbackId === null || rawFallbackId === undefined || rawFallbackId === '') {
+      return null;
+    }
     const fallbackId = Number(rawFallbackId);
     if (Number.isFinite(fallbackId) && fallbackId > 0) {
       return {
