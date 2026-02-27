@@ -2,75 +2,22 @@
   const link = document.getElementById('offer-download-link');
   if (!link) return;
 
-  const fileName = 'oferta_665803826172.pdf';
   const fallbackUrl = new URL(
     link.getAttribute('href') || './docs/oferta_665803826172.pdf',
     window.location.href
   ).toString();
+  const tgOpenLink = window.Telegram?.WebApp?.openLink;
 
-  async function downloadThroughBlob(url, name) {
-    const response = await fetch(url, {
-      method: 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store'
-    });
-
-    if (!response.ok) {
-      throw new Error(`Download failed with status ${response.status}`);
+  link.addEventListener('click', (event) => {
+    // In Telegram WebView, opening via SDK is more reliable than "download" attr.
+    if (typeof tgOpenLink !== 'function') {
+      return;
     }
 
-    const blob = await response.blob();
-    const mime = blob.type || 'application/pdf';
-    const file = new File([blob], name, { type: mime });
-
-    if (
-      typeof navigator.canShare === 'function' &&
-      typeof navigator.share === 'function' &&
-      navigator.canShare({ files: [file] })
-    ) {
-      await navigator.share({ files: [file], title: 'Оферта' });
-      return true;
-    }
-
-    const objectUrl = URL.createObjectURL(blob);
-    const tempLink = document.createElement('a');
-    tempLink.href = objectUrl;
-    tempLink.download = name;
-    tempLink.rel = 'noopener';
-    tempLink.style.display = 'none';
-    document.body.appendChild(tempLink);
-    tempLink.click();
-
-    setTimeout(() => {
-      URL.revokeObjectURL(objectUrl);
-      tempLink.remove();
-    }, 1000);
-
-    return true;
-  }
-
-  link.addEventListener('click', async (event) => {
     event.preventDefault();
-
-    const tgOpenLink = window.Telegram?.WebApp?.openLink;
-    if (typeof tgOpenLink === 'function') {
-      try {
-        tgOpenLink(fallbackUrl, { try_instant_view: false });
-        return;
-      } catch (_) {
-        // Continue to browser fallbacks.
-      }
-    }
-
     try {
-      const ok = await downloadThroughBlob(fallbackUrl, fileName);
-      if (ok) return;
+      tgOpenLink(fallbackUrl, { try_instant_view: false });
     } catch (_) {
-      // Continue to final fallback.
-    }
-
-    const opened = window.open(fallbackUrl, '_blank', 'noopener');
-    if (!opened) {
       window.location.href = fallbackUrl;
     }
   });
