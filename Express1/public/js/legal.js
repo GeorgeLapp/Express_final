@@ -3,7 +3,10 @@
   if (!link) return;
 
   const fileName = 'oferta_665803826172.docx';
-  const fallbackUrl = new URL(link.getAttribute('href') || '/offer/download', window.location.href).toString();
+  const fallbackUrl = new URL(
+    link.getAttribute('href') || './docs/oferta_665803826172.docx',
+    window.location.href
+  ).toString();
 
   async function downloadThroughBlob(url, name) {
     const response = await fetch(url, {
@@ -68,6 +71,9 @@
       // Continue to final fallback.
     }
 
-    window.open(fallbackUrl, '_blank', 'noopener');
+    const opened = window.open(fallbackUrl, '_blank', 'noopener');
+    if (!opened) {
+      window.location.href = fallbackUrl;
+    }
   });
 })();
