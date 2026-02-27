@@ -21,6 +21,28 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 const publicDir = path.join(__dirname, 'public');
+const offerFileName = 'oferta_665803826172.docx';
+const offerFilePath = path.join(publicDir, 'docs', offerFileName);
+
+app.get('/offer/download', (_req, res, next) => {
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  );
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  res.download(offerFilePath, offerFileName, (err) => {
+    if (!err) return;
+    if (err.code === 'ENOENT') {
+      res.status(404).send('Offer file not found');
+      return;
+    }
+    next(err);
+  });
+});
 
 app.use(
   express.static(publicDir, {
@@ -39,7 +61,7 @@ app.use(
         res.setHeader('Expires', '0');
       }
 
-      const offerDocPathPart = `${path.sep}docs${path.sep}oferta_665803826172.docx`;
+      const offerDocPathPart = `${path.sep}docs${path.sep}${offerFileName}`;
       if (p.endsWith(offerDocPathPart)) {
         res.setHeader(
           'Content-Type',
@@ -47,7 +69,7 @@ app.use(
         );
         res.setHeader(
           'Content-Disposition',
-          'attachment; filename="oferta_665803826172.docx"'
+          `attachment; filename="${offerFileName}"`
         );
         res.setHeader('X-Content-Type-Options', 'nosniff');
       }
