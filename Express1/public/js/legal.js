@@ -2,9 +2,9 @@
   const link = document.getElementById('offer-download-link');
   if (!link) return;
 
-  const fileName = 'oferta_665803826172.docx';
+  const fileName = 'oferta_665803826172.pdf';
   const fallbackUrl = new URL(
-    link.getAttribute('href') || './docs/oferta_665803826172.docx',
+    link.getAttribute('href') || './docs/oferta_665803826172.pdf',
     window.location.href
   ).toString();
 
@@ -20,9 +20,7 @@
     }
 
     const blob = await response.blob();
-    const mime =
-      blob.type ||
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const mime = blob.type || 'application/pdf';
     const file = new File([blob], name, { type: mime });
 
     if (
