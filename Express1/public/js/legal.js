@@ -1,6 +1,7 @@
 (function () {
   const link = document.getElementById('offer-download-link');
   const chromeLink = document.getElementById('offer-open-chrome-link');
+  const googleViewerLink = document.getElementById('offer-open-google-viewer-link');
   if (!link) return;
 
   const offerHref = link.getAttribute('href') || './docs/oferta_665803826172.pdf';
@@ -43,16 +44,24 @@
     }
   });
 
-  if (chromeLink) {
-    chromeLink.addEventListener('click', (event) => {
+  const bindTelegramOpen = (element, urlToOpen) => {
+    if (!element) return;
+    element.addEventListener('click', (event) => {
       if (typeof tgOpenLink !== 'function') {
         return;
       }
 
       event.preventDefault();
-      if (!openThroughTelegram(fallbackUrl, true)) {
-        window.location.href = fallbackUrl;
+      if (!openThroughTelegram(urlToOpen, true)) {
+        window.location.href = urlToOpen;
       }
     });
+  };
+
+  bindTelegramOpen(chromeLink, fallbackUrl);
+  if (googleViewerLink) {
+    const viewerHref = googleViewerLink.getAttribute('href') || '';
+    const viewerUrl = new URL(viewerHref, window.location.href).toString();
+    bindTelegramOpen(googleViewerLink, viewerUrl);
   }
 })();

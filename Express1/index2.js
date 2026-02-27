@@ -28,11 +28,12 @@ const legacyOfferDocxRoute = '/docs/oferta_665803826172.docx';
 const sendOfferPdf = (res, next) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', `inline; filename="${offerFileName}"`);
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  res.download(offerFilePath, offerFileName, (err) => {
+  res.sendFile(offerFilePath, (err) => {
     if (!err) return;
     if (err.code === 'ENOENT') {
       res.status(404).send('Offer file not found');
@@ -47,8 +48,8 @@ app.get('/offer/download', (_req, res, next) => {
 });
 
 // Compatibility for cached old links that still point to DOCX.
-app.get(legacyOfferDocxRoute, (_req, res, next) => {
-  sendOfferPdf(res, next);
+app.get(legacyOfferDocxRoute, (_req, res) => {
+  res.redirect(302, `/docs/${offerFileName}`);
 });
 
 app.use(
@@ -71,10 +72,7 @@ app.use(
       const offerDocPathPart = `${path.sep}docs${path.sep}${offerFileName}`;
       if (p.endsWith(offerDocPathPart)) {
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader(
-          'Content-Disposition',
-          `attachment; filename="${offerFileName}"`
-        );
+        res.setHeader('Content-Disposition', `inline; filename="${offerFileName}"`);
         res.setHeader('X-Content-Type-Options', 'nosniff');
       }
     }
