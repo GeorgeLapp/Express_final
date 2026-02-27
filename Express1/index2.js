@@ -21,14 +21,12 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 const publicDir = path.join(__dirname, 'public');
-const offerFileName = 'oferta_665803826172.docx';
+const offerFileName = 'oferta_665803826172.pdf';
 const offerFilePath = path.join(publicDir, 'docs', offerFileName);
+const legacyOfferDocxRoute = '/docs/oferta_665803826172.docx';
 
-app.get('/offer/download', (_req, res, next) => {
-  res.setHeader(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  );
+const sendOfferPdf = (res, next) => {
+  res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   res.setHeader('Pragma', 'no-cache');
@@ -42,6 +40,15 @@ app.get('/offer/download', (_req, res, next) => {
     }
     next(err);
   });
+};
+
+app.get('/offer/download', (_req, res, next) => {
+  sendOfferPdf(res, next);
+});
+
+// Compatibility for cached old links that still point to DOCX.
+app.get(legacyOfferDocxRoute, (_req, res, next) => {
+  sendOfferPdf(res, next);
 });
 
 app.use(
@@ -63,10 +70,7 @@ app.use(
 
       const offerDocPathPart = `${path.sep}docs${path.sep}${offerFileName}`;
       if (p.endsWith(offerDocPathPart)) {
-        res.setHeader(
-          'Content-Type',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        );
+        res.setHeader('Content-Type', 'application/pdf');
         res.setHeader(
           'Content-Disposition',
           `attachment; filename="${offerFileName}"`
