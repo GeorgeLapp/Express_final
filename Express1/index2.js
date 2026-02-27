@@ -38,6 +38,19 @@ app.use(
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
       }
+
+      const offerDocPathPart = `${path.sep}docs${path.sep}oferta_665803826172.docx`;
+      if (p.endsWith(offerDocPathPart)) {
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        );
+        res.setHeader(
+          'Content-Disposition',
+          'attachment; filename="oferta_665803826172.docx"'
+        );
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+      }
     }
   })
 );
