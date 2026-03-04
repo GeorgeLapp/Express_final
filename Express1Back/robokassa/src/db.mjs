@@ -16,6 +16,48 @@ import { config } from "./config.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const DEMO_PRODUCTS = [
+  {
+    productId: "p_express_100",
+    sku: "EXPRESS_100",
+    title: "100 экспрессов",
+    isActive: 1,
+    priceMinor: 50000,
+    currency: "RUB",
+    deliveryType: "credits_pack",
+    payloadRef: "credits:100"
+  },
+  {
+    productId: "p_week_1000",
+    sku: "WEEK_1000",
+    title: "Неделя (без ограничений или до 1000 экспрессов)",
+    isActive: 1,
+    priceMinor: 100000,
+    currency: "RUB",
+    deliveryType: "subscription",
+    payloadRef: "subscription:week:1000"
+  },
+  {
+    productId: "p_month",
+    sku: "MONTH",
+    title: "Месяц",
+    isActive: 1,
+    priceMinor: 500000,
+    currency: "RUB",
+    deliveryType: "subscription",
+    payloadRef: "subscription:month"
+  },
+  {
+    productId: "p_year",
+    sku: "YEAR",
+    title: "Год",
+    isActive: 1,
+    priceMinor: 2500000,
+    currency: "RUB",
+    deliveryType: "subscription",
+    payloadRef: "subscription:year"
+  }
+];
 
 async function readSchema() {
   const schemaPath = path.resolve(__dirname, "schema.sql");
@@ -33,15 +75,33 @@ export async function initDb() {
 
   // Optional demo seeding for easier local testing
   if (config.seedDemoProducts) {
-    const row = await db.get("SELECT COUNT(*) as cnt FROM products");
-    if ((row?.cnt || 0) === 0) {
+    for (const p of DEMO_PRODUCTS) {
       await db.run(
         `INSERT INTO products(product_id, sku, title, is_active, price_minor, currency, delivery_type, payload_ref)
-         VALUES
-         ('p_basic', 'BASIC', 'Basic digital item', 1, 9900, 'RUB', 'license_key', 'pool:basic'),
-         ('p_pro', 'PRO', 'Pro digital item', 1, 19900, 'RUB', 'download_link', 'file:pro.zip')`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(product_id) DO UPDATE SET
+           sku = excluded.sku,
+           title = excluded.title,
+           is_active = excluded.is_active,
+           price_minor = excluded.price_minor,
+           currency = excluded.currency,
+           delivery_type = excluded.delivery_type,
+           payload_ref = excluded.payload_ref`,
+        [
+          p.productId,
+          p.sku,
+          p.title,
+          p.isActive,
+          p.priceMinor,
+          p.currency,
+          p.deliveryType,
+          p.payloadRef
+        ]
       );
     }
+
+    // Deactivate old demo products from previous builds to avoid confusion in wallet.
+    await db.run(`UPDATE products SET is_active = 0 WHERE product_id IN ('p_basic', 'p_pro')`);
   }
 
   return db;

@@ -148,7 +148,7 @@ app.get('/events', async (req, res) => {
   const username = (req.query.username || '').toString().trim();
 
   const requestedCount = parseInt(count, 10) || 1; // сколько событий вернуть
-  const ATTEMPT_COST = 1; // сколько попыток стоит один запрос
+  const ATTEMPT_COST = 1; // сколько экспрессов списывается за один запрос
   const nowSeconds = Math.floor(Date.now() / 1000);
   const maxStartTimeSeconds = nowSeconds + 24 * 60 * 60;
 
@@ -174,7 +174,7 @@ app.get('/events', async (req, res) => {
       if (user_attempts < ATTEMPT_COST) {
           return res
             .status(403)
-            .json({ error: `У вас недостаточно попыток! Осталось: ${user_attempts}` });
+            .json({ error: `У вас недостаточно экспрессов! Осталось: ${user_attempts}` });
         }
     }
 
@@ -574,7 +574,7 @@ app.post('/saveHistory', async (req, res) => {
     const currentAttempts = Number(freshUser?.attempts) || 0;
     if (currentAttempts < ATTEMPT_COST) {
       await db.run('ROLLBACK');
-      return res.status(403).json({ error: `Недостаточно попыток. Осталось: ${currentAttempts}` });
+      return res.status(403).json({ error: `Недостаточно экспрессов. Осталось: ${currentAttempts}` });
     }
 
     const usernameForRow = username || freshUser?.username || null;

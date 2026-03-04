@@ -1303,14 +1303,41 @@
   color: #666666;
 }
 
-.wallet-package-title {
-  font-size: 20px;
+.wallet-plans {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wallet-plan-card {
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+  background: #fafafa;
+}
+
+.wallet-plan-title {
+  font-size: 18px;
   font-weight: 700;
+  color: #1f1f1f;
+}
+
+.wallet-plan-price {
   margin-top: 4px;
+  font-size: 16px;
+  color: #333333;
+}
+
+.wallet-plan-note {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #666666;
 }
 
 .wallet-buy-button {
-  margin-top: 18px;
+  margin-top: 10px;
   width: 100%;
 }
 

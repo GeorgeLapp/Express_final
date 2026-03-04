@@ -83,29 +83,41 @@ function normalizeSearchText(value) {
     .trim();
 }
 
-function includesAny(haystack, needles) {
-  return needles.some(needle => haystack.includes(needle));
+function normalizeTournamentSet(values) {
+  return new Set(values.map(normalizeSearchText));
 }
 
-function matchesTournamentRules(tournament, rules) {
-  return rules.some(([countryKeys, leagueKeys]) =>
-    includesAny(tournament, countryKeys) && includesAny(tournament, leagueKeys)
-  );
-}
+// Футбол: строго только целевые лиги (без U19/U21/женских/региональных и т.п.).
+const FOOTBALL_TOURNAMENT_WHITELIST = normalizeTournamentSet([
+  'Англия. Премьер-Лига',
+  'England. Premier League',
+  'Италия. Серия А',
+  'Italy. Serie A',
+  'Испания. Ла Лига',
+  'Испания. Примера',
+  'Spain. La Liga',
+  'Spain. Primera',
+  'Germany. Bundesliga',
+  'Германия. Бундеслига',
+  'Аргентина. Примера дивизион',
+  'Аргентина. Лига Профессионал',
+  'Argentina. Primera Division',
+  'Argentina. Liga Profesional',
+  'Россия. РПЛ',
+  'Россия. Премьер-Лига',
+  'Russia. Premier League',
+  'Бразилия. Серия А',
+  'Brazil. Serie A'
+]);
 
-// Футбол: только эти лиги (Англия, Италия, Испания, Германия, Аргентина, Россия, Бразилия)
-const FOOTBALL_TOURNAMENT_RULES = [
-  [['англия', 'england'], ['премьер лига', 'premier league']],
-  [['италия', 'italy'], ['серия а', 'serie a']],
-  [['испания', 'spain'], ['la liga', 'примера', 'laliga']],
-  [['германия', 'germany'], ['bundesliga', 'бундеслига']],
-  [['аргентина', 'argentina'], ['премьер лига', 'примера дивизион', 'primera division', 'liga profesional']],
-  [['россия', 'russia'], ['рпл', 'премьер лига']],
-  [['бразилия', 'brazil'], ['серия а', 'serie a']]
-];
-
-// Хоккей: только КХЛ и NHL
-const HOCKEY_TOURNAMENT_WHITELIST = ['кхл', 'khl', 'нхл', 'nhl'];
+// Хоккей: строго только КХЛ и NHL.
+const HOCKEY_TOURNAMENT_WHITELIST = normalizeTournamentSet([
+  'КХЛ',
+  'Россия. КХЛ',
+  'NHL',
+  'НХЛ',
+  'США. НХЛ'
+]);
 
 // Теннис: только матчи с этими игроками (рус/латиница + частые варианты написания)
 const TENNIS_PLAYER_KEYWORDS = [
@@ -231,12 +243,12 @@ export class FonbetStream extends EventEmitter {
 
     // Футбол: только заданные турниры
     if (sport === 'футбол') {
-      return matchesTournamentRules(tournament, FOOTBALL_TOURNAMENT_RULES);
+      return FOOTBALL_TOURNAMENT_WHITELIST.has(tournament);
     }
 
     // Хоккей: только заданные турниры
     if (sport === 'хоккей') {
-      return HOCKEY_TOURNAMENT_WHITELIST.some(kw => tournament.includes(kw));
+      return HOCKEY_TOURNAMENT_WHITELIST.has(tournament);
     }
 
     // Теннис: только матчи, где участвует игрок из заданного списка

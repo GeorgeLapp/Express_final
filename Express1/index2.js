@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const path = require('path');
+const fs = require('fs');
 
 const PORT = Number(process.env.PORT || 3000);
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
@@ -21,7 +22,36 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 const publicDir = path.join(__dirname, 'public');
-const offerFileName = 'oferta_665803826172.pdf';
+const docsDir = path.join(publicDir, 'docs');
+const DEFAULT_OFFER_FILE_NAME = 'oferta_665803826172.pdf';
+const configuredOfferFileName = (process.env.OFFER_FILE_NAME || '').trim();
+
+function resolveOfferFileName() {
+  if (configuredOfferFileName) {
+    return configuredOfferFileName;
+  }
+
+  try {
+    const files = fs.readdirSync(docsDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && /^oferta.*\.pdf$/i.test(entry.name))
+      .map((entry) => {
+        const absolutePath = path.join(docsDir, entry.name);
+        const stat = fs.statSync(absolutePath);
+        return { name: entry.name, mtimeMs: stat.mtimeMs || 0 };
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+    if (files.length) {
+      return files[0].name;
+    }
+  } catch (err) {
+    console.warn('[offer] failed to scan docs directory:', err?.message || err);
+  }
+
+  return DEFAULT_OFFER_FILE_NAME;
+}
+
+const offerFileName = resolveOfferFileName();
 const offerFilePath = path.join(publicDir, 'docs', offerFileName);
 const legacyOfferDocxRoute = '/docs/oferta_665803826172.docx';
 

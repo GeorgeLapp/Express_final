@@ -4,7 +4,7 @@
   const googleViewerLink = document.getElementById('offer-open-google-viewer-link');
   if (!link) return;
 
-  const offerHref = link.getAttribute('href') || './docs/oferta_665803826172.pdf';
+  const offerHref = link.getAttribute('href') || '/offer/download';
   const fallbackUrl = new URL(offerHref, window.location.href).toString();
   const tgOpenLink = window.Telegram?.WebApp?.openLink;
 
