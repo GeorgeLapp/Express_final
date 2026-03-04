@@ -98,7 +98,7 @@ const FOOTBALL_TOURNAMENT_WHITELIST = normalizeTournamentSet([
   'Spain. La Liga',
   'Spain. Primera',
   'Germany. Bundesliga',
-  'Германия. Бундеслига',
+  'Германия. Бундеслига. Сезон 25/26',
   'Аргентина. Примера дивизион',
   'Аргентина. Лига Профессионал',
   'Argentina. Primera Division',
