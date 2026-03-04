@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveBubbleValuesToLocalStorage();
     const left = getAttemptsLeft();
     if (left <= 0) {
-      alert('Экспрессы закончились. Пополните баланс.');
+      alert('Попытки закончились. Пополните баланс попыток.');
       return false;
     }
     return true;

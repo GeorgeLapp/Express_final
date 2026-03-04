@@ -20,7 +20,7 @@ const DEMO_PRODUCTS = [
   {
     productId: "p_express_100",
     sku: "EXPRESS_100",
-    title: "100 экспрессов",
+    title: "100 попыток",
     isActive: 1,
     priceMinor: 50000,
     currency: "RUB",
@@ -30,7 +30,7 @@ const DEMO_PRODUCTS = [
   {
     productId: "p_week_1000",
     sku: "WEEK_1000",
-    title: "Неделя (без ограничений или до 1000 экспрессов)",
+    title: "Подписка на неделю (без ограничений или до 1000 попыток)",
     isActive: 1,
     priceMinor: 100000,
     currency: "RUB",
@@ -40,7 +40,7 @@ const DEMO_PRODUCTS = [
   {
     productId: "p_month",
     sku: "MONTH",
-    title: "Месяц",
+    title: "Подписка на месяц",
     isActive: 1,
     priceMinor: 500000,
     currency: "RUB",
@@ -50,7 +50,7 @@ const DEMO_PRODUCTS = [
   {
     productId: "p_year",
     sku: "YEAR",
-    title: "Год",
+    title: "Подписка на год",
     isActive: 1,
     priceMinor: 2500000,
     currency: "RUB",

@@ -10,28 +10,28 @@ const BILLING_BASE_PATH = "/api/billing";
 
 const PLAN_CONFIG = {
   express_100: {
-    label: "100 экспрессов",
+    label: "100 попыток",
     productId: "p_express_100",
     priceMinor: 50000,
-    keywords: ["100", "express", "экспресс"]
+    keywords: ["100", "attempt", "попыт", "express", "экспресс"]
   },
   week: {
-    label: "Неделя",
+    label: "Подписка на неделю",
     productId: "p_week_1000",
     priceMinor: 100000,
-    keywords: ["week", "недел", "1000", "unlim", "безлим"]
+    keywords: ["подписк", "week", "недел", "1000", "unlim", "безлим"]
   },
   month: {
-    label: "Месяц",
+    label: "Подписка на месяц",
     productId: "p_month",
     priceMinor: 500000,
-    keywords: ["month", "месяц"]
+    keywords: ["подписк", "month", "месяц"]
   },
   year: {
-    label: "Год",
+    label: "Подписка на год",
     productId: "p_year",
     priceMinor: 2500000,
-    keywords: ["year", "год", "annual"]
+    keywords: ["подписк", "year", "год", "annual"]
   }
 };
 

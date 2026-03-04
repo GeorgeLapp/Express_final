@@ -18,6 +18,22 @@ async function nextInvId(db) {
   return (row?.mx || 1000) + 1;
 }
 
+function getCheckoutDescription(product) {
+  const payloadRef = String(product?.payloadRef || "").toLowerCase();
+
+  if (payloadRef.startsWith("subscription:week")) {
+    return "Подписка на неделю";
+  }
+  if (payloadRef.startsWith("subscription:month")) {
+    return "Подписка на месяц";
+  }
+  if (payloadRef.startsWith("subscription:year")) {
+    return "Подписка на год";
+  }
+
+  return String(product?.title || "Digital goods");
+}
+
 export function makeCheckoutRouter({ db }) {
   const r = express.Router();
 
@@ -40,7 +56,7 @@ export function makeCheckoutRouter({ db }) {
 
       // Product must exist and be active
       const p = await db.get(
-        `SELECT product_id as productId, price_minor as priceMinor, currency, title
+        `SELECT product_id as productId, price_minor as priceMinor, currency, title, payload_ref as payloadRef
          FROM products
          WHERE product_id = ? AND is_active = 1`,
         [productId]
@@ -57,7 +73,7 @@ export function makeCheckoutRouter({ db }) {
       // Shp_* are included into signatures and help bind payment to user/session
       const shp = { Shp_userId: String(userId), Shp_sessionId: String(sessionId) };
 
-      const payUrl = buildPayUrl({ invId, outSum, description: p.title, shp });
+      const payUrl = buildPayUrl({ invId, outSum, description: getCheckoutDescription(p), shp });
 
       const createdAt = nowIso();
       const expiresAt = addMinutes(new Date(), 30);

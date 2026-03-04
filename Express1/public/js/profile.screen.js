@@ -6,7 +6,7 @@ backButtonClickHandler('index.html');
 function updateAttemptsDisplay(attempts) {
   const attemptsInfo = document.getElementById('attemptsInfo');
   if (attemptsInfo) {
-    attemptsInfo.textContent = `Доступно экспрессов: ${attempts}`;
+    attemptsInfo.textContent = `Количество попыток: ${attempts}`;
   }
 }
 
