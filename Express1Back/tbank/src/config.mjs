@@ -70,6 +70,7 @@ bootstrapEnv();
 export const config = {
   port: Number(process.env.PORT || 3010),
   dbPath: resolveDbPath(process.env.DB_PATH || "./billing.sqlite"),
+  appDbPath: resolveDbPath(process.env.APP_DB_PATH || "../database.sqlite"),
 
   tbank: {
     terminalKey: process.env.TBANK_TERMINAL_KEY || "",
@@ -95,5 +96,11 @@ export const config = {
   publicSalesMode: (process.env.PUBLIC_SALES_MODE || "public").toLowerCase(),
 
   // MVP convenience seeding
-  seedDemoProducts: (process.env.SEED_DEMO_PRODUCTS || "false").toLowerCase() === "true"
+  seedDemoProducts: (process.env.SEED_DEMO_PRODUCTS || "false").toLowerCase() === "true",
+
+  fulfillment: {
+    subscriptionWeekAttempts: Number(process.env.SUBSCRIPTION_WEEK_ATTEMPTS || 1000),
+    subscriptionMonthAttempts: Number(process.env.SUBSCRIPTION_MONTH_ATTEMPTS || 5000),
+    subscriptionYearAttempts: Number(process.env.SUBSCRIPTION_YEAR_ATTEMPTS || 25000)
+  }
 };

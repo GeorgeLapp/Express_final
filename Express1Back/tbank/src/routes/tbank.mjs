@@ -137,7 +137,8 @@ export function makeTbankRouter({ db }) {
         );
 
         const sale2 = await db.get(
-          `SELECT sale_id as saleId, product_id as productId, inv_id as invId, fulfillment_ref as fulfillmentRef
+          `SELECT sale_id as saleId, user_id as userId, product_id as productId,
+                  inv_id as invId, fulfillment_ref as fulfillmentRef
            FROM sales
            WHERE inv_id = ?`,
           [invId]
@@ -155,7 +156,8 @@ export function makeTbankRouter({ db }) {
             deliveryType: product.deliveryType,
             payloadRef: product.payloadRef,
             saleId: sale2.saleId,
-            invId: sale2.invId
+            invId: sale2.invId,
+            userId: sale2.userId
           });
 
           await db.run(
