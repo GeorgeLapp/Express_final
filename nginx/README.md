@@ -8,11 +8,12 @@ Based on your current express1_ru.conf:
 
 Added:
 - billing upstream -> http://127.0.0.1:3010
-- Robokassa callbacks/redirects routed to billing:
-  /api/robokassa/result
-  /api/robokassa/success
-  /api/robokassa/fail
-- (Optional) Billing API under /api/billing/ routed to billing upstream
+- T-Bank callbacks/redirects routed to billing:
+  /api/tbank/notification
+  /api/tbank/success
+  /api/tbank/fail
+- Billing API under /api/billing/ routed to billing upstream
+- Robokassa endpoints return 410 (disabled)
 
 ## Install
 1) Copy snippets:
@@ -28,8 +29,8 @@ Added:
    sudo nginx -t
    sudo systemctl reload nginx
 
-## Robokassa cabinet URLs
-Set exactly:
-- ResultURL:  https://express1.ru/api/robokassa/result
-- SuccessURL: https://express1.ru/api/robokassa/success
-- FailURL:    https://express1.ru/api/robokassa/fail
+## T-Bank terminal URLs
+Set in terminal settings:
+- NotificationURL: https://express1.ru/api/tbank/notification
+- SuccessURL:      https://express1.ru/api/tbank/success
+- FailURL:         https://express1.ru/api/tbank/fail

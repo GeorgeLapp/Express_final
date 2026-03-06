@@ -39,7 +39,7 @@ module.exports = {
     },
     {
       name: 'billing-service',
-      cwd: './Express1Back/robokassa',
+      cwd: './Express1Back/tbank',
       script: 'src/server.mjs',
       interpreter: 'node',
       env: {
