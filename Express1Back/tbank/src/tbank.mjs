@@ -10,6 +10,19 @@ function normalizeBaseUrl(raw) {
   return String(raw || "").replace(/\/+$/, "");
 }
 
+function resolveInitUrl(rawApiBaseUrl) {
+  const normalized = normalizeBaseUrl(rawApiBaseUrl);
+  if (!normalized) {
+    return "https://securepay.tinkoff.ru/v2/Init";
+  }
+
+  if (/\/v2\/init$/i.test(normalized)) {
+    return normalized;
+  }
+
+  return `${normalized}/v2/Init`;
+}
+
 function toBool(value) {
   if (typeof value === "boolean") return value;
   const normalized = String(value || "").trim().toLowerCase();
@@ -93,7 +106,7 @@ export async function initTbankPayment({
   };
   requestBody.Token = calcTbankToken(requestBody, config.tbank.password);
 
-  const initUrl = `${normalizeBaseUrl(config.tbank.apiBaseUrl)}/v2/Init`;
+  const initUrl = resolveInitUrl(config.tbank.apiBaseUrl);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
 
@@ -102,7 +115,10 @@ export async function initTbankPayment({
   try {
     response = await fetch(initUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
       body: JSON.stringify(requestBody),
       signal: controller.signal
     });
@@ -136,4 +152,3 @@ export async function initTbankPayment({
     status
   };
 }
-

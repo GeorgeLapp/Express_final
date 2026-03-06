@@ -4,7 +4,8 @@
   "type": "module",
   "main": "src/server.mjs",
   "scripts": {
-    "start": "node src/server.mjs"
+    "start": "node src/server.mjs",
+    "tbank:init": "node scripts/create-payment-link.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",
