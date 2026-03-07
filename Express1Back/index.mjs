@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { EventModel } from './EventModel.mjs';
 import { initDB } from './db.mjs';
+import { loadParserFilters, normalizeSearchText } from './parser-filters.mjs';
 
 let fetchFn;
 const __filename = fileURLToPath(import.meta.url);
@@ -75,68 +76,27 @@ let dbPromise = initDB();
 
 // --- Бизнес-фильтры по видам спорта / турнирам / игрокам ---
 
-function normalizeSearchText(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[.,/\\-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+// Все бизнес-фильтры редактируются в отдельном файле parser-filters.txt.
+// Формат и инструкция находятся прямо в этом файле, чтобы его мог править не-разработчик.
+const parserFilters = loadParserFilters({
+  baseDir: path.dirname(__filename),
+  filePath: process.env.FONBET_FILTERS_FILE || ''
+});
+
+const FOOTBALL_TOURNAMENT_WHITELIST = parserFilters.footballTournaments;
+const HOCKEY_TOURNAMENT_WHITELIST = parserFilters.hockeyTournaments;
+const TENNIS_PLAYER_WHITELIST = parserFilters.tennisPlayers;
+
+const TEAM_NAME_BLACKLIST = new Set(['хозяева', 'гости', 'home', 'away'].map(normalizeSearchText));
+
+for (const warning of parserFilters.warnings) {
+  console.warn(`[parser-filters] ${warning}`);
 }
 
-function normalizeTournamentSet(values) {
-  return new Set(values.map(normalizeSearchText));
-}
-
-// Футбол: строго только целевые лиги (без U19/U21/женских/региональных и т.п.).
-const FOOTBALL_TOURNAMENT_WHITELIST = normalizeTournamentSet([
-  'Англия. Премьер-Лига',
-  'England. Premier League',
-  'Италия. Серия А',
-  'Italy. Serie A',
-  'Испания. Ла Лига',
-  'Испания. Примера',
-  'Spain. La Liga',
-  'Spain. Primera',
-  'Germany. Bundesliga',
-  'Германия. Бундеслига. Сезон 25/26',
-  'Аргентина. Примера дивизион',
-  'Аргентина. Лига Профессионал',
-  'Argentina. Primera Division',
-  'Argentina. Liga Profesional',
-  'Россия. РПЛ',
-  'Россия. Премьер-Лига',
-  'Russia. Premier League',
-  'Бразилия. Серия А',
-  'Brazil. Serie A'
-]);
-
-// Хоккей: строго только КХЛ и NHL.
-const HOCKEY_TOURNAMENT_WHITELIST = normalizeTournamentSet([
-  'КХЛ',
-  'Россия. КХЛ',
-  'NHL',
-  'НХЛ',
-  'США. НХЛ'
-]);
-
-// Теннис: только матчи с этими игроками (рус/латиница + частые варианты написания)
-const TENNIS_PLAYER_KEYWORDS = [
-  'медведев', 'medvedev',
-  'рублев', 'rublev',
-  'зверев', 'zverev',
-  'алькарас', 'alkaraz', 'alcaraz',
-  'джокович', 'djokovic',
-  'синнер', 'sinner',
-  'соболенко', 'sobolenko', 'sabalenka',
-  'рыбакина', 'rybakina',
-  'швентек', 'sventek', 'swiatek',
-  'де минаур', 'de minaur', 'deminaur',
-  'мунар', 'munar',
-  'меньшик', 'menshik', 'mensik',
-  'бублик', 'bublik'
-].map(normalizeSearchText);
-
-const TEAM_NAME_BLACKLIST = new Set(['хозяева', 'гости']);
+console.log(
+  `[parser-filters] file=${parserFilters.filePath}; football=${FOOTBALL_TOURNAMENT_WHITELIST.size};` +
+    ` hockey=${HOCKEY_TOURNAMENT_WHITELIST.size}; tennis=${TENNIS_PLAYER_WHITELIST.size}`
+);
 
 
 export class FonbetStream extends EventEmitter {
@@ -241,19 +201,19 @@ export class FonbetStream extends EventEmitter {
       return false;
     }
 
-    // Футбол: только заданные турниры
-    if (sport === 'футбол') {
+    // Футбол: только точное совпадение с турнирами из parser-filters.txt
+    if (sport === 'футбол' || sport === 'football') {
       return FOOTBALL_TOURNAMENT_WHITELIST.has(tournament);
     }
 
-    // Хоккей: только заданные турниры
-    if (sport === 'хоккей') {
+    // Хоккей: только точное совпадение с турнирами из parser-filters.txt
+    if (sport === 'хоккей' || sport === 'hockey' || sport === 'ice hockey') {
       return HOCKEY_TOURNAMENT_WHITELIST.has(tournament);
     }
 
-    // Теннис: только матчи, где участвует игрок из заданного списка
-    if (sport === 'теннис') {
-      return TENNIS_PLAYER_KEYWORDS.some(keyword => t1.includes(keyword) || t2.includes(keyword));
+    // Теннис: точное совпадение ОДНОГО из игроков (team1 или team2) из whitelist
+    if (sport === 'теннис' || sport === 'tennis') {
+      return TENNIS_PLAYER_WHITELIST.has(t1) || TENNIS_PLAYER_WHITELIST.has(t2);
     }
 
     // Остальные виды спорта в БД не пишем
@@ -456,7 +416,7 @@ export class FonbetStream extends EventEmitter {
 
   const stream = new FonbetStream({ pollInterval: 5000 });
 
-  console.log('Запуск: фильтруем Футбол (Англия/Италия/Испания/Германия/Аргентина/Россия/Бразилия), Хоккей (КХЛ/NHL) и Теннис (список игроков)');
+  console.log('Запуск: активны фильтры из parser-filters.txt (футбол/хоккей: точные турниры, теннис: точный игрок team1/team2)');
 
   stream.on('sport', s => console.log('[sport ]', s.name));
   stream.on('event', e => console.log('[event ]', `${e.sport} / ${e.tournament} | ${e.team1} – ${e.team2}`));

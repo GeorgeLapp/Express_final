@@ -1351,3 +1351,242 @@
 .wallet-status-error {
   color: #b30000;
 }
+
+/* wallet-screen: compact layout + toasts */
+body.wallet-page {
+  overflow: hidden;
+}
+
+.container.wallet-layout {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  justify-content: flex-start;
+}
+
+.container.wallet-layout .header,
+.container.wallet-layout .footer {
+  flex-shrink: 0;
+}
+
+.container.wallet-layout .main-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.container.wallet-layout .wallet-content {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.container.wallet-layout .wallet-panel {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.container.wallet-layout .wallet-balance-label {
+  font-size: 13px;
+}
+
+.container.wallet-layout .wallet-balance-value {
+  margin: 4px 0 8px;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.container.wallet-layout .wallet-package-label {
+  font-size: 12px;
+}
+
+.container.wallet-layout .wallet-plans {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.container.wallet-layout .wallet-plan-card {
+  padding: 9px;
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+}
+
+.container.wallet-layout .wallet-plan-title {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.container.wallet-layout .wallet-plan-price {
+  margin-top: 3px;
+  font-size: 14px;
+}
+
+.container.wallet-layout .wallet-plan-note {
+  margin-top: 3px;
+  min-height: 24px;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.container.wallet-layout .wallet-buy-button {
+  width: 100%;
+  min-width: 0;
+  margin-top: auto;
+  padding: 8px 10px;
+  font-size: 14px;
+  border-radius: 14px;
+}
+
+.container.wallet-layout .wallet-status {
+  margin-top: 6px;
+  min-height: 16px;
+  font-size: 12px;
+}
+
+.container.wallet-layout .footer {
+  margin-bottom: 12px;
+  gap: 20px;
+}
+
+.container.wallet-layout .footer-icon {
+  width: 54px;
+  height: 54px;
+  margin-top: 8px;
+}
+
+.container.wallet-layout .footer-icon img {
+  width: 34px;
+  height: 34px;
+}
+
+.wallet-toast-host {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  width: min(360px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.wallet-toast {
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+  animation: walletToastIn 0.2s ease;
+}
+
+.wallet-toast-info {
+  background: #2666cf;
+}
+
+.wallet-toast-success {
+  background: #1b8f4b;
+}
+
+.wallet-toast-error {
+  background: #b53a3a;
+}
+
+.wallet-toast.hide {
+  animation: walletToastOut 0.2s ease forwards;
+}
+
+@keyframes walletToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes walletToastOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@media (max-height: 780px) {
+  .container.wallet-layout .header {
+    margin-top: 8px;
+  }
+
+  .container.wallet-layout .header .logo {
+    height: 48px;
+  }
+
+  .container.wallet-layout .wallet-panel {
+    padding: 10px;
+  }
+
+  .container.wallet-layout .wallet-balance-value {
+    font-size: 30px;
+  }
+
+  .container.wallet-layout .wallet-plan-card {
+    min-height: 100px;
+  }
+
+  .container.wallet-layout .wallet-plan-title,
+  .container.wallet-layout .wallet-plan-price,
+  .container.wallet-layout .wallet-buy-button {
+    font-size: 12px;
+  }
+
+  .container.wallet-layout .wallet-plan-note,
+  .container.wallet-layout .wallet-status {
+    font-size: 10px;
+  }
+
+  .container.wallet-layout .footer {
+    margin-bottom: 8px;
+  }
+
+  .container.wallet-layout .footer-icon {
+    width: 48px;
+    height: 48px;
+    margin-top: 6px;
+  }
+
+  .container.wallet-layout .footer-icon img {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+@media (max-width: 350px) {
+  .container.wallet-layout .wallet-plans {
+    gap: 6px;
+  }
+
+  .container.wallet-layout .wallet-plan-card {
+    padding: 8px;
+  }
+
+  .container.wallet-layout .wallet-buy-button {
+    padding: 7px 8px;
+  }
+}

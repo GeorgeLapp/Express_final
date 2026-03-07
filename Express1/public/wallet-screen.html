@@ -9,14 +9,15 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 
-<body>
-    <div class="container">
+<body class="wallet-page">
+    <div class="container wallet-layout">
         <header class="header">
             <button class="back-button">
                 <img src="./images/back button.png" alt="Back Icon" />
             </button>
             <img class="logo" src="./images/express1-logo.png" alt="Express1 Logo">
         </header>
+
         <div class="main-content wallet-content">
             <main class="wallet-panel">
                 <div class="wallet-balance-label">Текущее количество попыток</div>
@@ -53,6 +54,7 @@
                 <p class="wallet-status" id="walletStatus"></p>
             </main>
         </div>
+
         <footer class="footer">
             <button class="footer-icon" data-page="wallet">
                 <img src="./images/icon-dollar.png" alt="Dollar Icon" />
@@ -68,6 +70,8 @@
             </button>
         </footer>
     </div>
+
+    <div class="wallet-toast-host" id="walletToastHost" aria-live="polite"></div>
     <script src="./js/wallet-screen.js" type="module"></script>
 </body>
 

@@ -37,6 +37,9 @@ const PLAN_CONFIG = {
 
 const PLAN_ORDER = ["express_100", "week", "month", "year"];
 const planProducts = new Map();
+const PAYMENT_POLL_INTERVAL_MS = 2000;
+const PAYMENT_POLL_TIMEOUT_MS = 45000;
+const TOAST_DEFAULT_TIMEOUT_MS = 4500;
 
 function getBillingBaseUrl() {
   if (typeof window === "undefined" || !window.location) {
@@ -68,11 +71,12 @@ function setStatus(message, isError = false) {
 }
 
 async function syncAttemptsFromBackend() {
-  setAttemptsValue(getAttemptsLeft());
+  const cachedAttempts = getAttemptsLeft();
+  setAttemptsValue(cachedAttempts);
 
   const userId = getCurrentUserId();
   if (!userId) {
-    return;
+    return cachedAttempts;
   }
 
   try {
@@ -86,10 +90,172 @@ async function syncAttemptsFromBackend() {
     if (typeof user?.attempts === "number") {
       localStorage.setItem("attemptsLeft", String(user.attempts));
       setAttemptsValue(user.attempts);
+      return Number(user.attempts);
     }
   } catch (error) {
     console.error("Failed to sync attempts on wallet screen:", error);
   }
+
+  return cachedAttempts;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function ensureToastHost() {
+  let host = document.getElementById("walletToastHost");
+  if (host) return host;
+
+  host = document.createElement("div");
+  host.id = "walletToastHost";
+  host.className = "wallet-toast-host";
+  host.setAttribute("aria-live", "polite");
+  document.body.appendChild(host);
+  return host;
+}
+
+function showToast(message, { type = "info", timeoutMs = TOAST_DEFAULT_TIMEOUT_MS } = {}) {
+  const host = ensureToastHost();
+  const toast = document.createElement("div");
+  toast.className = `wallet-toast wallet-toast-${type}`;
+  toast.textContent = String(message || "");
+  host.appendChild(toast);
+
+  const removeToast = () => {
+    toast.classList.add("hide");
+    setTimeout(() => toast.remove(), 220);
+  };
+
+  setTimeout(removeToast, Math.max(1200, Number(timeoutMs) || TOAST_DEFAULT_TIMEOUT_MS));
+}
+
+function getPaymentReturnParams() {
+  const params = new URLSearchParams(window.location.search || "");
+  const payment = String(params.get("payment") || "")
+    .trim()
+    .toLowerCase();
+  const invRaw = params.get("invId");
+  const invId = Number.parseInt(String(invRaw || ""), 10);
+
+  return {
+    hasPaymentParam: params.has("payment"),
+    payment,
+    invId: Number.isFinite(invId) ? invId : null
+  };
+}
+
+function clearPaymentReturnParamsFromUrl() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("payment") && !url.searchParams.has("invId")) {
+    return;
+  }
+
+  url.searchParams.delete("payment");
+  url.searchParams.delete("invId");
+  const nextSearch = url.searchParams.toString();
+  const nextUrl = `${url.pathname}${nextSearch ? `?${nextSearch}` : ""}${url.hash || ""}`;
+  window.history.replaceState(null, "", nextUrl);
+}
+
+async function fetchSaleStatusByInvId(invId) {
+  if (!Number.isFinite(invId)) return null;
+
+  const billingBaseUrl = getBillingBaseUrl();
+  const response = await fetch(`${billingBaseUrl}/sales/by-inv/${encodeURIComponent(String(invId))}`);
+
+  if (response.status === 404 || response.status === 403) {
+    // Sales public API can be disabled in production, fallback to attempts polling.
+    return null;
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error || `HTTP ${response.status}`);
+  }
+
+  if (!payload?.status) return null;
+  return String(payload.status).toLowerCase();
+}
+
+async function waitForPaymentConfirmation({ invId, baselineAttempts }) {
+  const startedAt = Date.now();
+  let attempts = Number.isFinite(baselineAttempts) ? baselineAttempts : getAttemptsLeft();
+
+  while (Date.now() - startedAt < PAYMENT_POLL_TIMEOUT_MS) {
+    attempts = await syncAttemptsFromBackend();
+    if (Number.isFinite(attempts) && attempts > baselineAttempts) {
+      return { status: "paid", attempts };
+    }
+
+    if (Number.isFinite(invId)) {
+      try {
+        const saleStatus = await fetchSaleStatusByInvId(invId);
+        if (saleStatus === "paid") {
+          attempts = await syncAttemptsFromBackend();
+          return { status: "paid", attempts };
+        }
+        if (saleStatus === "canceled" || saleStatus === "refunded") {
+          return { status: saleStatus, attempts };
+        }
+      } catch (error) {
+        console.error("Failed to poll billing sale status:", error);
+      }
+    }
+
+    await sleep(PAYMENT_POLL_INTERVAL_MS);
+  }
+
+  return { status: "timeout", attempts };
+}
+
+async function handlePaymentReturnFlow() {
+  if (typeof window === "undefined") return;
+
+  const paymentParams = getPaymentReturnParams();
+  if (!paymentParams.hasPaymentParam) {
+    return;
+  }
+
+  clearPaymentReturnParamsFromUrl();
+
+  if (paymentParams.payment === "fail") {
+    setStatus("Оплата не прошла. Попробуйте снова.", true);
+    showToast("Оплата не выполнена", { type: "error" });
+    await syncAttemptsFromBackend();
+    return;
+  }
+
+  if (paymentParams.payment !== "success") {
+    return;
+  }
+
+  const baselineAttempts = getAttemptsLeft();
+  setStatus("Проверяем оплату и обновляем баланс попыток...");
+  showToast("Платеж получен. Подтверждаем оплату...", { type: "info", timeoutMs: 3200 });
+
+  const result = await waitForPaymentConfirmation({
+    invId: paymentParams.invId,
+    baselineAttempts
+  });
+
+  if (result.status === "paid") {
+    setStatus("");
+    showToast("Оплата успешна. Попытки обновлены.", { type: "success", timeoutMs: 5500 });
+    return;
+  }
+
+  if (result.status === "canceled" || result.status === "refunded") {
+    setStatus("Оплата отменена или не подтверждена.", true);
+    showToast("Оплата не подтверждена", { type: "error" });
+    return;
+  }
+
+  setStatus("Платеж обрабатывается. Обновите экран через 15-30 секунд.");
+  showToast("Не удалось подтвердить оплату сразу. Платеж еще может завершиться успешно.", {
+    type: "info",
+    timeoutMs: 6500
+  });
 }
 
 function getPlanConfig(planKey) {
@@ -270,6 +436,7 @@ async function handleBuyClick(event) {
 
   if (!planKey || !plan || !productId) {
     setStatus("Этот тариф сейчас недоступен для покупки.", true);
+    showToast("Тариф временно недоступен", { type: "error" });
     return;
   }
 
@@ -282,6 +449,7 @@ async function handleBuyClick(event) {
   } catch (error) {
     console.error("Payment link creation failed:", error);
     setStatus(error?.message || "Не удалось создать ссылку оплаты", true);
+    showToast(error?.message || "Не удалось создать ссылку на оплату", { type: "error" });
     updatePlanButtonsState();
   }
 }
@@ -297,6 +465,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   backButtonClickHandler("index.html");
   setupFooterNavigation("wallet");
   bindEvents();
-  syncAttemptsFromBackend();
+  await syncAttemptsFromBackend();
   await syncPlansFromBilling();
+  await handlePaymentReturnFlow();
 });
