@@ -88,24 +88,6 @@ const HOCKEY_TOURNAMENT_WHITELIST = parserFilters.hockeyTournaments;
 const TENNIS_PLAYER_WHITELIST = parserFilters.tennisPlayers;
 
 const TEAM_NAME_BLACKLIST = new Set(['хозяева', 'гости', 'home', 'away'].map(normalizeSearchText));
-const TENNIS_SIDE_SPLIT_RE = /\s*(?:\/|\\|&|\+)\s*/;
-
-function extractTennisPlayers(team1, team2) {
-  const players = [];
-
-  for (const side of [team1, team2]) {
-    const chunks = String(side || '').split(TENNIS_SIDE_SPLIT_RE);
-
-    for (const chunk of chunks) {
-      const player = normalizeSearchText(chunk);
-      if (player) {
-        players.push(player);
-      }
-    }
-  }
-
-  return players;
-}
 
 for (const warning of parserFilters.warnings) {
   console.warn(`[parser-filters] ${warning}`);
@@ -229,13 +211,13 @@ export class FonbetStream extends EventEmitter {
       return HOCKEY_TOURNAMENT_WHITELIST.has(tournament);
     }
 
-    // Теннис: только одиночные матчи (2 игрока всего) и хотя бы 1 игрок из whitelist
+    // Теннис: берем только одиночные (без "/"), плюс хотя бы 1 игрок из whitelist
     if (sport === 'теннис' || sport === 'tennis') {
-      const tennisPlayers = extractTennisPlayers(team1, team2);
-      if (tennisPlayers.length !== 2) {
+      const hasSlash = String(team1 || '').includes('/') || String(team2 || '').includes('/');
+      if (hasSlash) {
         return false;
       }
-      return tennisPlayers.some(player => TENNIS_PLAYER_WHITELIST.has(player));
+      return TENNIS_PLAYER_WHITELIST.has(t1) || TENNIS_PLAYER_WHITELIST.has(t2);
     }
 
     // Остальные виды спорта в БД не пишем
