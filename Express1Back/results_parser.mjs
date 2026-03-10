@@ -129,6 +129,155 @@ function calcWinningOutcome(scoreString) {
   return 'outcomeX';
 }
 
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .trim();
+}
+
+function parseScorePart(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  const parsed = parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function toScoreString(score1, score2) {
+  const left = parseScorePart(score1);
+  const right = parseScorePart(score2);
+
+  if (!Number.isFinite(left) || !Number.isFinite(right)) {
+    return '';
+  }
+
+  return `${left}:${right}`;
+}
+
+function isHockeyText(value) {
+  const text = normalizeText(value);
+  if (!text) return false;
+  return text.includes('хоккей') || text.includes('hockey') || text.includes('ice hockey');
+}
+
+function getSubScores(misc) {
+  if (Array.isArray(misc?.subScores)) return misc.subScores;
+  if (Array.isArray(misc?.subscores)) return misc.subscores;
+  return [];
+}
+
+function getSubScoreValue(subScore, primaryKey, fallbackKey) {
+  if (typeof subScore?.[primaryKey] !== 'undefined') {
+    return subScore[primaryKey];
+  }
+  return subScore?.[fallbackKey];
+}
+
+function parseSubScoreIndex(subScore) {
+  const rawIndex = typeof subScore?.scoreIndex !== 'undefined'
+    ? subScore.scoreIndex
+    : subScore?.kindId;
+  return parseScorePart(rawIndex);
+}
+
+function extractRegularTimeHockeyScore(misc) {
+  const subScores = getSubScores(misc);
+  if (!subScores.length) return '';
+
+  const regularIndexSet = new Set([16, 17, 18]);
+
+  let byIndexScore1 = 0;
+  let byIndexScore2 = 0;
+  let byIndexCount = 0;
+
+  for (const subScore of subScores) {
+    const scoreIndex = parseSubScoreIndex(subScore);
+    if (!regularIndexSet.has(scoreIndex)) continue;
+
+    const s1 = parseScorePart(getSubScoreValue(subScore, 'score1', 'c1'));
+    const s2 = parseScorePart(getSubScoreValue(subScore, 'score2', 'c2'));
+    if (!Number.isFinite(s1) || !Number.isFinite(s2)) continue;
+
+    byIndexScore1 += s1;
+    byIndexScore2 += s2;
+    byIndexCount += 1;
+  }
+
+  if (byIndexCount > 0) {
+    return `${byIndexScore1}:${byIndexScore2}`;
+  }
+
+  let byNameScore1 = 0;
+  let byNameScore2 = 0;
+  let byNameCount = 0;
+
+  for (const subScore of subScores) {
+    const title = normalizeText(subScore?.title || subScore?.kindName);
+    if (!title.includes('период')) continue;
+    if (title.includes('оверт') || title.includes('буллит') || title.includes('shootout')) {
+      continue;
+    }
+
+    const s1 = parseScorePart(getSubScoreValue(subScore, 'score1', 'c1'));
+    const s2 = parseScorePart(getSubScoreValue(subScore, 'score2', 'c2'));
+    if (!Number.isFinite(s1) || !Number.isFinite(s2)) continue;
+
+    byNameScore1 += s1;
+    byNameScore2 += s2;
+    byNameCount += 1;
+  }
+
+  if (byNameCount > 0) {
+    return `${byNameScore1}:${byNameScore2}`;
+  }
+
+  return '';
+}
+
+function eventLooksLikeHockey(event) {
+  if (!event || typeof event !== 'object') return false;
+
+  if (isHockeyText(event?.sport?.name)) return true;
+  if (isHockeyText(event?.sport?.caption)) return true;
+
+  const textFields = [
+    event.sportName,
+    event.sportCaption,
+    event.sportTitle,
+    event.sportAlias,
+    event.sportKindName,
+    event.kindName,
+    event.scoreFunction,
+    event.sport
+  ];
+
+  return textFields.some(isHockeyText);
+}
+
+function miscLooksLikeHockey(misc) {
+  if (isHockeyText(misc?.scoreFunction)) return true;
+
+  const subScores = getSubScores(misc);
+  if (!subScores.length) return false;
+
+  for (const subScore of subScores) {
+    const scoreIndex = parseSubScoreIndex(subScore);
+    if ([16, 17, 18].includes(scoreIndex)) {
+      return true;
+    }
+
+    const title = normalizeText(subScore?.title || subScore?.kindName);
+    if (!title) continue;
+    if (title.includes('период') || title.includes('оверт') || title.includes('буллит')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function runParser() {
   try {
     const db = await dbPromise;
@@ -157,24 +306,32 @@ async function runParser() {
     const allMiscs = datasets.flatMap(data => data.eventMiscs || []);
 
     const statusById = new Map();
+    const hockeyById = new Map();
     for (const ev of allEvents) {
       if (ev.id && typeof ev.status !== 'undefined') {
         statusById.set(String(ev.id), ev.status);
+      }
+      if (ev?.id != null) {
+        hockeyById.set(String(ev.id), eventLooksLikeHockey(ev));
       }
     }
 
     const scoresById = new Map();
     for (const misc of allMiscs) {
-      if (
-        misc?.id != null &&
-        typeof misc.score1 !== 'undefined' &&
-        typeof misc.score2 !== 'undefined'
-      ) {
-        scoresById.set(String(misc.id), `${misc.score1}:${misc.score2}`);
+      if (misc?.id == null) continue;
+
+      const id = String(misc.id);
+      const defaultScore = toScoreString(misc.score1, misc.score2);
+      const isHockey = hockeyById.get(id) === true || miscLooksLikeHockey(misc);
+      const regularTimeScore = isHockey ? extractRegularTimeHockeyScore(misc) : '';
+      const score = regularTimeScore || defaultScore;
+
+      if (score) {
+        scoresById.set(id, score);
       }
     }
 
-    const dbEvents = await db.all('SELECT id, results, status FROM events');
+    const dbEvents = await db.all('SELECT id, results, status, winning_outcome FROM events');
     let updated = 0;
 
     for (const row of dbEvents) {
@@ -183,29 +340,32 @@ async function runParser() {
       const rawStatus = statusById.get(id);
       let touched = false;
       let currentResults = row.results;
+      let effectiveStatus = row.status;
 
       if (scoreStr && row.results !== scoreStr) {
-        await db.run('UPDATE events SET results = ? WHERE id = ?', scoreStr, Number(row.id));
+        await db.run('UPDATE events SET results = ? WHERE id = ?', scoreStr, id);
         currentResults = scoreStr;
         touched = true;
       }
 
       if (typeof rawStatus !== 'undefined') {
         const normalized = normalizeStatus(rawStatus);
+        effectiveStatus = normalized;
         if (row.status !== normalized) {
-          await db.run('UPDATE events SET status = ? WHERE id = ?', normalized, Number(row.id));
+          await db.run('UPDATE events SET status = ? WHERE id = ?', normalized, id);
           touched = true;
+        }
+      }
 
-          if (normalized === 'finished') {
-            const winningOutcome = calcWinningOutcome(currentResults);
-            if (winningOutcome) {
-              await db.run(
-                'UPDATE events SET winning_outcome = ? WHERE id = ?',
-                winningOutcome,
-                Number(row.id)
-              );
-            }
-          }
+      if (effectiveStatus === 'finished') {
+        const winningOutcome = calcWinningOutcome(currentResults);
+        if (winningOutcome && row.winning_outcome !== winningOutcome) {
+          await db.run(
+            'UPDATE events SET winning_outcome = ? WHERE id = ?',
+            winningOutcome,
+            id
+          );
+          touched = true;
         }
       }
 
