@@ -7,6 +7,8 @@ const scopeMarket = Number(process.env.FONBET_RESULTS_SCOPE_MARKET || 1600);
 const requestTimeoutMs = Number(process.env.FONBET_RESULTS_TIMEOUT_MS || 12000);
 const requestRetries = Number(process.env.FONBET_RESULTS_RETRIES || 2);
 const parserIntervalMs = Number(process.env.RESULTS_PARSER_INTERVAL_MS || 5 * 60 * 1000);
+const unresolvedLookbackDays = Number(process.env.RESULTS_UNRESOLVED_LOOKBACK_DAYS || 14);
+const maxLineDatesPerRun = Number(process.env.RESULTS_MAX_LINE_DATES_PER_RUN || 6);
 
 const resultHosts = (process.env.FONBET_RESULTS_HOSTS || 'clientsapi04w.bk6bba-resources.com')
   .split(',')
@@ -23,6 +25,15 @@ const RETRYABLE_CODES = new Set([
 
 const dbPromise = initDB();
 
+function asPositiveInt(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
+
+const effectiveUnresolvedLookbackDays = asPositiveInt(unresolvedLookbackDays, 14);
+const effectiveMaxLineDatesPerRun = asPositiveInt(maxLineDatesPerRun, 6);
+
 function getLineDate(offset = 0) {
   const date = new Date();
   date.setDate(date.getDate() + offset);
@@ -30,6 +41,28 @@ function getLineDate(offset = 0) {
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function toLineDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseStartTimeToMs(rawStartTime) {
+  const parsed = Number(rawStartTime);
+  if (!Number.isFinite(parsed) || parsed <= 0) return NaN;
+  return parsed > 1e12 ? Math.trunc(parsed) : Math.trunc(parsed * 1000);
+}
+
+function getLineDateFromStartTime(rawStartTime) {
+  const startMs = parseStartTimeToMs(rawStartTime);
+  if (!Number.isFinite(startMs)) return '';
+  return toLineDate(new Date(startMs));
 }
 
 function sleep(ms) {
@@ -112,9 +145,64 @@ async function fetchResultsForDate(lineDate) {
 }
 
 function normalizeStatus(rawStatus) {
-  if (rawStatus === 1 || rawStatus === '1') return 'live';
-  if (rawStatus === 2 || rawStatus === '2') return 'finished';
-  return String(rawStatus);
+  const normalized = String(rawStatus ?? '').trim().toLowerCase();
+  if (rawStatus === 1 || normalized === '1' || normalized === 'live') return 'live';
+  if (
+    rawStatus === 2 ||
+    normalized === '2' ||
+    normalized === 'finished' ||
+    normalized === 'ended' ||
+    normalized === 'completed' ||
+    normalized === 'settled' ||
+    normalized === 'closed'
+  ) {
+    return 'finished';
+  }
+  return normalized;
+}
+
+function getStatusPriority(status) {
+  if (status === 'finished') return 3;
+  if (status === 'live') return 2;
+  if (status) return 1;
+  return 0;
+}
+
+async function collectLineDates(db) {
+  const lineDates = new Set([getLineDate(0), getLineDate(-1)]);
+  const unresolvedDateCandidates = new Set();
+
+  const nowMs = Date.now();
+  const lookbackMs = effectiveUnresolvedLookbackDays * 24 * 60 * 60 * 1000;
+  const minStartMs = nowMs - lookbackMs;
+
+  const unresolvedRows = await db.all(`
+    SELECT DISTINCT startTime
+    FROM events
+    WHERE (winning_outcome IS NULL OR TRIM(winning_outcome) = '')
+      AND startTime IS NOT NULL
+      AND TRIM(CAST(startTime AS TEXT)) <> ''
+  `);
+
+  for (const row of unresolvedRows) {
+    const startMs = parseStartTimeToMs(row.startTime);
+    if (!Number.isFinite(startMs)) continue;
+    if (startMs > nowMs) continue;
+    if (startMs < minStartMs) continue;
+
+    const lineDate = getLineDateFromStartTime(row.startTime);
+    if (lineDate) {
+      unresolvedDateCandidates.add(lineDate);
+    }
+  }
+
+  const sortedCandidates = Array.from(unresolvedDateCandidates).sort((a, b) => b.localeCompare(a));
+  for (const lineDate of sortedCandidates) {
+    if (lineDates.size >= effectiveMaxLineDatesPerRun) break;
+    lineDates.add(lineDate);
+  }
+
+  return Array.from(lineDates).sort((a, b) => b.localeCompare(a));
 }
 
 function calcWinningOutcome(scoreString) {
@@ -282,21 +370,21 @@ async function runParser() {
   try {
     const db = await dbPromise;
 
-    const settled = await Promise.allSettled([
-      fetchResultsForDate(getLineDate(0)),
-      fetchResultsForDate(getLineDate(-1))
-    ]);
+    const lineDates = await collectLineDates(db);
+    const settled = await Promise.allSettled(lineDates.map(lineDate => fetchResultsForDate(lineDate)));
 
     const datasets = settled
       .filter(item => item.status === 'fulfilled')
       .map(item => item.value);
 
-    settled
-      .filter(item => item.status === 'rejected')
-      .forEach(item => {
-        const code = getErrorCode(item.reason) || item.reason?.name || 'UNKNOWN';
-        console.warn(`[results-parser] transient fetch error code=${code}: ${item.reason?.message || item.reason}`);
-      });
+    settled.forEach((item, index) => {
+      if (item.status !== 'rejected') return;
+      const code = getErrorCode(item.reason) || item.reason?.name || 'UNKNOWN';
+      const lineDate = lineDates[index] || 'unknown';
+      console.warn(
+        `[results-parser] transient fetch error lineDate=${lineDate} code=${code}: ${item.reason?.message || item.reason}`
+      );
+    });
 
     if (!datasets.length) {
       throw new Error('No successful responses from results API');
@@ -309,10 +397,21 @@ async function runParser() {
     const hockeyById = new Map();
     for (const ev of allEvents) {
       if (ev.id && typeof ev.status !== 'undefined') {
-        statusById.set(String(ev.id), ev.status);
+        const id = String(ev.id);
+        const normalizedStatus = normalizeStatus(ev.status);
+        const prevStatus = statusById.get(id);
+        if (
+          typeof prevStatus === 'undefined' ||
+          getStatusPriority(normalizedStatus) >= getStatusPriority(prevStatus)
+        ) {
+          statusById.set(id, normalizedStatus);
+        }
       }
       if (ev?.id != null) {
-        hockeyById.set(String(ev.id), eventLooksLikeHockey(ev));
+        const id = String(ev.id);
+        if (!hockeyById.has(id)) {
+          hockeyById.set(id, eventLooksLikeHockey(ev));
+        }
       }
     }
 
@@ -326,7 +425,7 @@ async function runParser() {
       const regularTimeScore = isHockey ? extractRegularTimeHockeyScore(misc) : '';
       const score = regularTimeScore || defaultScore;
 
-      if (score) {
+      if (score && !scoresById.has(id)) {
         scoresById.set(id, score);
       }
     }
@@ -349,10 +448,9 @@ async function runParser() {
       }
 
       if (typeof rawStatus !== 'undefined') {
-        const normalized = normalizeStatus(rawStatus);
-        effectiveStatus = normalized;
-        if (row.status !== normalized) {
-          await db.run('UPDATE events SET status = ? WHERE id = ?', normalized, id);
+        effectiveStatus = rawStatus;
+        if (row.status !== rawStatus) {
+          await db.run('UPDATE events SET status = ? WHERE id = ?', rawStatus, id);
           touched = true;
         }
       }
@@ -375,7 +473,9 @@ async function runParser() {
     }
 
     const now = new Date();
-    console.log(`[${now.toLocaleString()}] Обновлено событий: ${updated}`);
+    console.log(
+      `[${now.toLocaleString()}] updated events=${updated}, lineDates=${lineDates.join(',')}`
+    );
   } catch (err) {
     const code = getErrorCode(err) || err?.name || 'UNKNOWN';
     console.error(`[results-parser] Ошибка парсера code=${code}:`, err?.message || err);
@@ -385,3 +485,4 @@ async function runParser() {
 }
 
 runParser();
+
