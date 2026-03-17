@@ -14,6 +14,8 @@ Added:
   /api/tbank/fail
 - Billing API under /api/billing/ routed to billing upstream
 - Robokassa endpoints return 410 (disabled)
+- Standalone static frontend:
+  /trc_golden_frontend/ -> /var/www/trc_golden_frontend/
 
 ## Install
 1) Copy snippets:
@@ -26,6 +28,18 @@ Added:
    sudo ln -sf /etc/nginx/sites-available/express1_ru.conf /etc/nginx/sites-enabled/express1_ru.conf
 
 4) Test and reload:
+   sudo nginx -t
+   sudo systemctl reload nginx
+
+## Deploy trc_golden_frontend (isolated static frontend)
+1) Copy frontend files to isolated directory:
+   sudo mkdir -p /var/www/trc_golden_frontend
+   sudo rsync -av --delete trc_golden_frontend/ /var/www/trc_golden_frontend/
+
+2) Ensure nginx config is updated from this repo:
+   sudo cp nginx/sites-available/express1_ru.conf /etc/nginx/sites-available/express1_ru.conf
+
+3) Test and reload:
    sudo nginx -t
    sudo systemctl reload nginx
 
