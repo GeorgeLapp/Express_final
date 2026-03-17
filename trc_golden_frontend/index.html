@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ТРЦ Золотой — внутренняя система</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-card">
+        <div class="brand-title">ТРЦ Золотой</div>
+      </div>
+
+      <nav class="menu" id="sidebarMenu">
+        <button class="menu-item active" data-route="dashboard">
+          <span class="menu-dot"></span>
+          <span>Главная панель</span>
+        </button>
+        <button class="menu-item" data-route="vor">
+          <span class="menu-dot"></span>
+          <span>ВОР</span>
+        </button>
+        <button class="menu-item" data-route="budget">
+          <span class="menu-dot"></span>
+          <span>Бюджет</span>
+        </button>
+        <button class="menu-item" data-route="locals">
+          <span class="menu-dot"></span>
+          <span>Локальные сметы</span>
+        </button>
+      </nav>
+
+      <section class="sidebar-card">
+        <div class="sidebar-card-label">Блоки</div>
+        <div class="sidebar-block-list" id="sidebarBlocks"></div>
+      </section>
+
+      <section class="sidebar-card compact">
+        <div class="sidebar-card-label">Состояние</div>
+        <div class="sidebar-meta" id="sidebarMeta"></div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <header class="topbar" id="topbar"></header>
+      <section id="screenHost"></section>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toastRoot"></div>
+
+  <script src="./bundle.js"></script>
+</body>
+</html>
