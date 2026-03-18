@@ -497,6 +497,20 @@ input[type="checkbox"]:checked::after{
   color:var(--muted);
   white-space:nowrap;
 }
+.table th.vor-key,
+.table td.vor-key{
+  background:rgba(48,201,109,.08);
+}
+.table th.vor-volume,
+.table td.vor-volume{
+  background:rgba(122,229,162,.10);
+}
+.table th.vor-volume{
+  border-left:1px solid var(--line-2);
+}
+.table td.vor-volume{
+  border-left:1px solid var(--line);
+}
 .table th.sortable{
   cursor:pointer;
 }

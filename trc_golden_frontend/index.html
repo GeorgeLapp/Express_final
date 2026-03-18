@@ -30,6 +30,10 @@
           <span class="menu-dot"></span>
           <span>Локальные сметы</span>
         </button>
+        <button class="menu-item" data-route="inspections">
+          <span class="menu-dot"></span>
+          <span>Журнал проверок стройконтроля</span>
+        </button>
       </nav>
 
       <section class="sidebar-card">
@@ -52,6 +56,25 @@
   <div id="modalRoot"></div>
   <div id="toastRoot"></div>
 
-  <script src="./bundle.js"></script>
+  <script>
+    (function(){
+      function loadBundleFallback(){
+        var script = document.createElement('script');
+        script.src = './bundle.js';
+        script.defer = true;
+        document.body.appendChild(script);
+      }
+
+      try{
+        import('./js/app.js').catch(function(error){
+          console.error('Failed to load module app.js, fallback to bundle.js', error);
+          loadBundleFallback();
+        });
+      }catch(error){
+        console.error('Module import is not available, fallback to bundle.js', error);
+        loadBundleFallback();
+      }
+    })();
+  </script>
 </body>
 </html>

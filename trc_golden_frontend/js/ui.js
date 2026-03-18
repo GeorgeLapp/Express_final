@@ -50,7 +50,8 @@ export function saveUiState(state){
     budget: state.budget,
     vor: state.vor,
     locals: state.locals,
-    dashboard: state.dashboard
+    dashboard: state.dashboard,
+    inspections: state.inspections
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
